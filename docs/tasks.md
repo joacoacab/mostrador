@@ -14,17 +14,17 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 0 — Fundación del repo
 
-- [ ] **1. Setup del monorepo**
+- [x] **1. Setup del monorepo**
   Crear estructura `order-core/backend`, `order-core/frontend`, `.gitignore`, README mínimo con instrucciones de arranque.
   Hecho cuando: estructura de carpetas commiteada, sin código funcional todavía.
 
-- [ ] **2. CI básico**
+- [x] **2. CI básico**
   Workflow de GitHub Actions que corra lint + tests en cada push/PR sobre `order-core/backend` y `order-core/frontend`.
   Hecho cuando: el workflow existe, corre en un PR de prueba y termina en verde (aunque no haya tests reales todavía, el step debe ejecutarse sin error).
 
 ### Etapa 1 — Backend: base del proyecto Django
 
-- [ ] **3. Proyecto Django + apps**
+- [x] **3. Proyecto Django + apps**
   Crear proyecto Django y apps `tenants`, `accounts`, `catalog`, `orders` (sin modelos todavía). `docker-compose.yml` con PostgreSQL para desarrollo local.
   Hecho cuando: `docker compose up` levanta PostgreSQL y `manage.py runserver` conecta sin errores.
 
