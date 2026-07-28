@@ -17,4 +17,5 @@ urlpatterns = [
     path('api/auth/me/', MeView.as_view(), name='auth_me'),
     path('api/auth/admin-ping/', AdminOnlyPingView.as_view(), name='auth_admin_ping'),
     path('api/', include('catalog.urls')),
+    path('api/', include('orders.urls')),
 ]

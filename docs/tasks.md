@@ -71,7 +71,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   `GET/POST/PATCH/DELETE`, scopeada por tenant y protegida por auth (tarea 8).
   Hecho cuando: tests cubren que un usuario del tenant A no puede leer ni modificar productos del tenant B.
 
-- [ ] **10. API de `Order` — lectura**
+- [x] **10. API de `Order` — lectura**
   `GET /orders` (filtro por estado/cliente/fecha), `GET /orders/{id}`, `GET /orders?customer_phone=`.
   Hecho cuando: tests cubren los filtros y el scoping por tenant.
 

@@ -1,5 +1,8 @@
 from django.test import TestCase
+from rest_framework.test import APIClient
 
+from accounts.models import User
+from accounts.testing import authenticate_as
 from catalog.models import Product
 from tenancy.context import tenant_context
 from tenants.models import Tenant
@@ -121,3 +124,70 @@ class OrderEventTests(TestCase):
 
         self.assertEqual(list(self.order.events.all()), [event])
         self.assertIsNotNone(event.created_at)
+
+
+class OrderReadAPITests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-read", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-read", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-read", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.customer_a1 = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente 1"
+        )
+        self.customer_a2 = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111112", nombre="Cliente 2"
+        )
+        self.order_a1 = Order.all_objects.create(
+            tenant=self.tenant_a, customer=self.customer_a1, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_PENDIENTE,
+        )
+        self.order_a2 = Order.all_objects.create(
+            tenant=self.tenant_a, customer=self.customer_a2, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_CONFIRMADO,
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.order_b = Order.all_objects.create(
+            tenant=self.tenant_b, customer=self.customer_b, canal=Order.CANAL_MANUAL
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_lista_solo_pedidos_del_tenant_propio(self):
+        response = self.client.get("/api/orders/")
+        self.assertEqual(response.status_code, 200)
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a1.id, self.order_a2.id})
+
+    def test_filtra_por_estado(self):
+        response = self.client.get("/api/orders/", {"estado": Order.ESTADO_CONFIRMADO})
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a2.id})
+
+    def test_filtra_por_customer(self):
+        response = self.client.get("/api/orders/", {"customer": self.customer_a1.id})
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a1.id})
+
+    def test_filtra_por_customer_phone(self):
+        response = self.client.get("/api/orders/", {"customer_phone": self.customer_a1.telefono})
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a1.id})
+
+    def test_filtra_por_fecha(self):
+        fecha = self.order_a1.created_at.date().isoformat()
+        response = self.client.get("/api/orders/", {"fecha": fecha})
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a1.id, self.order_a2.id})
+
+    def test_no_puede_leer_pedido_de_otro_tenant(self):
+        response = self.client.get(f"/api/orders/{self.order_b.id}/")
+        self.assertEqual(response.status_code, 404)
+
+    def test_customer_phone_de_otro_tenant_no_devuelve_nada(self):
+        response = self.client.get("/api/orders/", {"customer_phone": self.customer_b.telefono})
+        self.assertEqual(response.data, [])

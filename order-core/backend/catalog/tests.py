@@ -1,17 +1,12 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
+from accounts.testing import authenticate_as
 from tenancy.context import tenant_context
 from tenants.models import Tenant
 
 from .models import Product
-
-
-def authenticate_as(client, user):
-    access = str(RefreshToken.for_user(user).access_token)
-    client.credentials(HTTP_AUTHORIZATION=f"Bearer {access}")
 
 
 class ProductScopingTests(TestCase):
