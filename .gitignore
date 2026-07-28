@@ -7,6 +7,7 @@ venv/
 *.egg-info/
 staticfiles/
 media/
+.ruff_cache/
 
 # Node / Next.js
 node_modules/
