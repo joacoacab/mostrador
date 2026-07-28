@@ -99,12 +99,12 @@ Vista adicional, separada del panel de gestión, pensada para mostrarse en una t
 
 ### 3.6 Arquitectura frontend: PWA
 
-El frontend de Mostrador (panel interno + pantalla tablet, sección 3.5) se construye como una **única PWA** en vez de apps nativas separadas:
+El frontend de Mostrador (panel interno + pantalla tablet, sección 3.5) se construye como una **única PWA** en Next.js + TypeScript, en vez de apps nativas separadas:
 
-- Mismo código React/Vite, distintas rutas: `/panel` (gestión, requiere login) y `/pantalla` (solo lectura, pairing por QR/código).
+- Mismo código Next.js, distintas rutas: `/panel` (gestión, requiere login) y `/pantalla` (solo lectura, pairing por QR/código).
 - Instalable desde el navegador (manifest.json + service worker), sin pasar por tiendas de apps — clave si el producto se instala en el dispositivo de un tercero.
 - Service worker cachea el último estado conocido de los pedidos, para que la pantalla del local no se rompa ante un corte breve de wifi.
-- Recomendado usar `vite-plugin-pwa` para no reinventar el manifest/service worker a mano.
+- Recomendado usar `next-pwa` para no reinventar el manifest/service worker a mano.
 - Limitación a tener en cuenta: soporte de PWA en iOS es más acotado que en Android/Chrome (push notifications, background sync). No es un problema para la pantalla fija del local (probablemente tablet Android), pero sí a evaluar si en el futuro se piensa un uso más "app" para el dueño desde su celular.
 
 ### 4.1 Flujo de mensajes
@@ -147,10 +147,11 @@ Para un producto que se va a vender a terceros, conviene planificar directamente
 
 ## 6. Stack sugerido
 
-Reutilizar lo ya probado en La Balanza para bajar riesgo:
-- **Order Core**: Django + DRF + PostgreSQL (multi-tenant por `tenant_id`), React + Vite + Tailwind para el panel.
-- **WhatsApp Agent**: servicio aparte (Python o Node), Claude API con tool use, cola de mensajes (Redis/simple queue) para no bloquear webhooks entrantes.
-- Deploy: mismo esquema que La Balanza (EC2 + Traefik + GitHub Actions).
+Reutilizar lo ya probado en La Balanza para bajar riesgo, modernizando el frontend:
+- **Order Core (backend)**: Django + DRF + PostgreSQL (multi-tenant por `tenant_id`). Se mantiene sobre Django porque ya está resuelto el patrón multi-tenant en otros proyectos y da admin gratis — cambiarlo ahora sería riesgo especulativo sin necesidad real.
+- **Frontend**: Next.js + TypeScript + Tailwind, en vez de Vite+React plano — tipado real en los contratos con la API y mejor soporte de PWA (`next-pwa`).
+- **WhatsApp Agent**: servicio aparte (Node/TypeScript o Python, a definir en Fase 2), Claude API con tool use, cola de mensajes (Redis/simple queue). Se comunica con el Order Core por HTTP, no comparte código — por eso el lenguaje del Order Core no condiciona al del bot.
+- **Infra**: AWS, mismo esquema que La Balanza — EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia. RDS se evalúa más adelante, cuando haya carga real o un cliente pagando que justifique el costo de un servicio administrado con backups/Multi-AZ.
 
 ---
 
@@ -166,11 +167,11 @@ Desglose de tareas:
 4. Auth (JWT) con rol admin/empleado.
 5. API CRUD de `Product`.
 6. API de `Order`: crear, listar, filtrar por estado/cliente/fecha, transición de estado con validación de máquina de estados (sección 3.2) y creación automática de `OrderEvent`.
-7. Frontend: login, CRUD de productos, alta manual de pedido.
-8. Frontend: panel kanban (sección 3.4) con actualización en tiempo real (WebSocket via Django Channels, o polling corto si se prioriza velocidad de entrega).
+7. Frontend: setup Next.js + TypeScript + Tailwind (`order-core/frontend`), configuración de PWA (`next-pwa`) desde el arranque, login, CRUD de productos, alta manual de pedido.
+8. Frontend: panel kanban (sección 3.4) con actualización en tiempo real (polling corto — WebSocket queda para más adelante si hace falta).
 9. Frontend: pantalla tablet/TV de solo lectura (sección 3.5).
 10. Tests de la máquina de estados y del scoping multi-tenant (que un tenant no pueda ver datos de otro).
-11. Deploy: EC2 + Traefik + GitHub Actions, infra propia y separada de La Balanza.
+11. Deploy: EC2 + Traefik + GitHub Actions, infra propia y separada de La Balanza, PostgreSQL en Docker en la misma instancia (RDS se evalúa más adelante).
 
 **Fase 2 — Bot de WhatsApp (texto)**
 - Integración con Meta Cloud API, agente con tools básicas (catálogo + crear pedido + consultar estado).
