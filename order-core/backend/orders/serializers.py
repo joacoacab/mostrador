@@ -68,3 +68,7 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 precio_unitario_snapshot=product.precio,
             )
         return order
+
+
+class OrderStatusSerializer(serializers.Serializer):
+    estado = serializers.ChoiceField(choices=Order.ESTADO_CHOICES)

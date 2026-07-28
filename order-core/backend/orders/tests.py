@@ -8,6 +8,7 @@ from tenancy.context import tenant_context
 from tenants.models import Tenant
 
 from .models import Customer, Order, OrderEvent, OrderItem
+from .state_machine import InvalidTransition, transition_order
 
 
 class CustomerScopingTests(TestCase):
@@ -270,3 +271,114 @@ class OrderCreateAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 400)
+
+
+class StateMachineTests(TestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-sm", plan="basico")
+        self.customer = Customer.all_objects.create(
+            tenant=self.tenant, telefono="+5491111111", nombre="Cliente A"
+        )
+
+    def _order(self, estado=Order.ESTADO_PENDIENTE):
+        return Order.all_objects.create(
+            tenant=self.tenant, customer=self.customer, canal=Order.CANAL_MANUAL, estado=estado
+        )
+
+    def test_transiciones_validas_del_flujo_principal(self):
+        order = self._order()
+        transition_order(order, Order.ESTADO_CONFIRMADO, actor="sistema")
+        transition_order(order, Order.ESTADO_EN_PREPARACION, actor="sistema")
+        transition_order(order, Order.ESTADO_LISTO, actor="sistema")
+        transition_order(order, Order.ESTADO_EN_CAMINO, actor="sistema")
+        transition_order(order, Order.ESTADO_ENTREGADO, actor="sistema")
+
+        order.refresh_from_db()
+        self.assertEqual(order.estado, Order.ESTADO_ENTREGADO)
+        self.assertEqual(order.events.count(), 5)
+
+    def test_retiro_en_local_no_pasa_por_en_camino(self):
+        order = self._order(estado=Order.ESTADO_LISTO)
+        transition_order(order, Order.ESTADO_ENTREGADO, actor="sistema")
+        order.refresh_from_db()
+        self.assertEqual(order.estado, Order.ESTADO_ENTREGADO)
+
+    def test_transicion_invalida_rechaza(self):
+        order = self._order(estado=Order.ESTADO_PENDIENTE)
+        with self.assertRaises(InvalidTransition):
+            transition_order(order, Order.ESTADO_ENTREGADO, actor="sistema")
+        order.refresh_from_db()
+        self.assertEqual(order.estado, Order.ESTADO_PENDIENTE)
+        self.assertEqual(order.events.count(), 0)
+
+    def test_estados_terminales_no_tienen_salida(self):
+        order = self._order(estado=Order.ESTADO_ENTREGADO)
+        with self.assertRaises(InvalidTransition):
+            transition_order(order, Order.ESTADO_CONFIRMADO, actor="sistema")
+
+    def test_registra_estado_anterior_y_nuevo_en_el_evento(self):
+        order = self._order()
+        transition_order(order, Order.ESTADO_CONFIRMADO, actor="bot")
+
+        event = order.events.get()
+        self.assertEqual(event.estado_anterior, Order.ESTADO_PENDIENTE)
+        self.assertEqual(event.estado_nuevo, Order.ESTADO_CONFIRMADO)
+        self.assertEqual(event.actor, "bot")
+
+
+class OrderStatusAPITests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-status", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-status", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-status", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.customer_a = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.order_a = Order.all_objects.create(
+            tenant=self.tenant_a, customer=self.customer_a, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_PENDIENTE,
+        )
+        self.order_b = Order.all_objects.create(
+            tenant=self.tenant_b, customer=self.customer_b, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_PENDIENTE,
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_transicion_valida_devuelve_200_y_actualiza_estado(self):
+        response = self.client.patch(
+            f"/api/orders/{self.order_a.id}/status/", {"estado": Order.ESTADO_CONFIRMADO}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["estado"], Order.ESTADO_CONFIRMADO)
+
+    def test_transicion_invalida_devuelve_400(self):
+        response = self.client.patch(
+            f"/api/orders/{self.order_a.id}/status/", {"estado": Order.ESTADO_ENTREGADO}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.order_a.refresh_from_db()
+        self.assertEqual(self.order_a.estado, Order.ESTADO_PENDIENTE)
+
+    def test_transicion_valida_crea_order_event_con_actor(self):
+        self.client.patch(
+            f"/api/orders/{self.order_a.id}/status/", {"estado": Order.ESTADO_CONFIRMADO}, format="json"
+        )
+        event = self.order_a.events.get()
+        self.assertEqual(event.estado_anterior, Order.ESTADO_PENDIENTE)
+        self.assertEqual(event.estado_nuevo, Order.ESTADO_CONFIRMADO)
+        self.assertEqual(event.actor, str(self.user_a.id))
+
+    def test_no_puede_cambiar_estado_de_pedido_de_otro_tenant(self):
+        response = self.client.patch(
+            f"/api/orders/{self.order_b.id}/status/", {"estado": Order.ESTADO_CONFIRMADO}, format="json"
+        )
+        self.assertEqual(response.status_code, 404)
+        self.order_b.refresh_from_db()
+        self.assertEqual(self.order_b.estado, Order.ESTADO_PENDIENTE)

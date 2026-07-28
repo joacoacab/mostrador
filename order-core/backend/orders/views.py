@@ -1,8 +1,11 @@
 from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 from .models import Order
-from .serializers import OrderCreateSerializer, OrderSerializer
+from .serializers import OrderCreateSerializer, OrderSerializer, OrderStatusSerializer
+from .state_machine import InvalidTransition, transition_order
 
 
 class OrderViewSet(
@@ -60,3 +63,20 @@ class OrderViewSet(
         read_serializer = OrderSerializer(write_serializer.instance, context=self.get_serializer_context())
         headers = self.get_success_headers(read_serializer.data)
         return Response(read_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=True, methods=["patch"], url_path="status")
+    def status_transition(self, request, pk=None):
+        order = self.get_object()
+        serializer = OrderStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        try:
+            transition_order(
+                order,
+                serializer.validated_data["estado"],
+                actor=str(request.user.id),
+            )
+        except InvalidTransition as exc:
+            raise ValidationError({"estado": str(exc)}) from exc
+
+        return Response(OrderSerializer(order, context=self.get_serializer_context()).data)

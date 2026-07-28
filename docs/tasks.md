@@ -79,7 +79,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   `POST /orders` con sus `OrderItem`, copiando `precio_unitario_snapshot` del producto al momento de la creación.
   Hecho cuando: test verifica que el precio queda "congelado" en el pedido aunque el producto cambie de precio después.
 
-- [ ] **12. API de `Order` — transición de estado**
+- [x] **12. API de `Order` — transición de estado**
   `PATCH /orders/{id}/status` con validación de la máquina de estados (spec sección 3.2) y creación automática de `OrderEvent` en cada transición.
   Hecho cuando: tests cubren todas las transiciones válidas e inválidas descritas en la spec, y cada transición válida deja un `OrderEvent` registrado con el actor correcto.
 
