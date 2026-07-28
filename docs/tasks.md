@@ -112,7 +112,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 6 — Frontend: fundación + flujos manuales
 
-- [ ] **15. Setup frontend**
+- [x] **15. Setup frontend**
   Proyecto Next.js + TypeScript + Tailwind en `order-core/frontend`, configuración de PWA con `next-pwa` (manifest, service worker) desde el arranque.
   Hecho cuando: `npm run build` genera el manifest y el service worker; la app instala como PWA en Chrome/Android.
 

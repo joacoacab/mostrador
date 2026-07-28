@@ -102,9 +102,9 @@ Vista adicional, separada del panel de gestión, pensada para mostrarse en una t
 El frontend de Mostrador (panel interno + pantalla tablet, sección 3.5) se construye como una **única PWA** en Next.js + TypeScript, en vez de apps nativas separadas:
 
 - Mismo código Next.js, distintas rutas: `/panel` (gestión, requiere login) y `/pantalla` (solo lectura, pairing por QR/código).
-- Instalable desde el navegador (manifest.json + service worker), sin pasar por tiendas de apps — clave si el producto se instala en el dispositivo de un tercero.
-- Service worker cachea el último estado conocido de los pedidos, para que la pantalla del local no se rompa ante un corte breve de wifi.
-- Recomendado usar `next-pwa` para no reinventar el manifest/service worker a mano.
+- Instalable desde el navegador (manifest + service worker), sin pasar por tiendas de apps — clave si el producto se instala en el dispositivo de un tercero.
+- Service worker cachea el último estado conocido de los pedidos, para que la pantalla del local no se rompa ante un corte breve de wifi (a implementar en las tareas 19-21, cuando exista contenido real que cachear).
+- No se usa `next-pwa`: al implementar la tarea 15 (julio 2026) la versión instalada de Next.js (16) ya trae soporte nativo de manifest (`app/manifest.ts`) y la guía oficial de PWA de esa versión recomienda **Serwist** como sucesor de `next-pwa` para el service worker — con la salvedad de que Serwist necesita configuración de webpack, mientras que Next 16 usa Turbopack por default. Se optó por un `public/sw.js` mínimo escrito a mano (sin estrategia de cache, solo lo necesario para que el navegador ofrezca instalar la PWA) hasta que la tarea 19-21 necesite cachear datos reales.
 - Limitación a tener en cuenta: soporte de PWA en iOS es más acotado que en Android/Chrome (push notifications, background sync). No es un problema para la pantalla fija del local (probablemente tablet Android), pero sí a evaluar si en el futuro se piensa un uso más "app" para el dueño desde su celular.
 
 ### 4.1 Flujo de mensajes
