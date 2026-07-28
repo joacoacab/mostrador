@@ -34,12 +34,12 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Campos según spec sección 3.1 (`id`, `nombre`, `slug`, `plan`, `created_at`) + migración.
   Hecho cuando: migración aplica limpio, admin de Django permite crear un `Tenant`.
 
-- [ ] **5. Modelo `User`**
+- [x] **5. Modelo `User`**
   Campos según spec (`tenant_id`, `email`, `password_hash`, `rol` admin/empleado, `nombre`), relacionado a `Tenant` + migración.
   Nota de implementación: extender `AbstractUser`/`AbstractBaseUser` de Django en vez de manejar un campo `password_hash` a mano — Django ya resuelve el hasheo de contraseñas de forma segura, no tiene sentido reimplementarlo. El campo `password_hash` de la spec se satisface con el `password` que da Django por herencia; no es un desvío de la spec, es un detalle de implementación.
   Hecho cuando: migración aplica limpio, se puede crear un `User` asociado a un `Tenant` vía admin o shell.
 
-- [ ] **6. Mecanismo de scoping por `tenant_id`**
+- [x] **6. Mecanismo de scoping por `tenant_id`**
   Middleware o manager custom que fuerza el filtro de tenant en cada query.
   Hecho cuando: existe un test automatizado que prueba que un query sin tenant explícito no devuelve datos de otro tenant (usando los modelos `Tenant`/`User` ya creados).
 
