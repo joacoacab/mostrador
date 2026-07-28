@@ -89,9 +89,26 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 5 — Tests de base (antes de frontend)
 
-- [ ] **14. Consolidar tests de máquina de estados y scoping multi-tenant**
+- [x] **14. Consolidar tests de máquina de estados y scoping multi-tenant**
   Revisar cobertura acumulada de las tareas 6, 9, 10, 11, 12 y cerrar huecos.
   Hecho cuando: suite de tests corre en verde en CI (tarea 2) y cubre explícitamente: aislamiento entre tenants en cada modelo, y cada transición de estado válida/inválida.
+
+  No se agregaron tests nuevos para esta tarea -- la cobertura ya quedó cerrada al construir cada pieza en las tareas 6-13. Esto es el registro de qué cubre qué, 54 tests en total (verificado en verde en CI en los commits de las tareas 8 a 13: `4a35819`, `7324004`, `a6525e8`, `b08a247`, `2b4451f`, `1503715`).
+
+  | Área de la spec | Dónde | Tests |
+  |---|---|---|
+  | Mecanismo de scoping en sí (ContextVar + `TenantManager` + middleware) | `tenancy/tests.py` | `TenantScopedManagerTests` (3), `TenantMiddlewareTests` (3) |
+  | Aislamiento — `User` | `tenancy/tests.py::TenantScopedManagerTests` | 3 |
+  | Aislamiento — `Product` | `catalog/tests.py::ProductScopingTests` + `ProductAPITests` (404 en get/patch/delete cross-tenant) | 3 + 3 |
+  | Aislamiento — `Customer` (+ teléfono único por tenant) | `orders/tests.py::CustomerScopingTests` | 4 |
+  | Aislamiento — `Order` | `orders/tests.py::OrderScopingTests` + `OrderReadAPITests` (list/retrieve/customer_phone cross-tenant) + `OrderCreateAPITests` (no usar producto/cliente de otro tenant) + `OrderStatusAPITests` (404 cross-tenant) | 3 + 2 + 2 + 1 |
+  | `GET /catalog` (solo disponibles, propio tenant) | `catalog/tests.py::CatalogViewTests` | 2 |
+  | `precio_unitario_snapshot` se congela | `orders/tests.py::OrderItemSnapshotTests` + `OrderCreateAPITests::test_crea_pedido_con_items_y_congela_el_precio` | 1 + 1 |
+  | Máquina de estados (sección 3.2) — transiciones válidas/inválidas, estados terminales, `OrderEvent` con estado_anterior/nuevo/actor | `orders/tests.py::StateMachineTests` (unit, contra `transition_order` directo) + `OrderStatusAPITests` (a través del endpoint) | 5 + 4 |
+  | `OrderEvent` se crea al asociarse a un `Order` | `orders/tests.py::OrderEventTests` | 1 |
+  | Auth JWT (login, endpoint protegido, permiso por rol, tenant en contexto vía token) | `accounts/tests.py::AuthJWTTests` + `TenantAwareJWTAuthenticationTests` | 6 + 1 |
+
+  Huecos conocidos, no bloqueantes para Fase 1: no hay test de que `Order.customer.tenant` coincida con `Order.tenant` (hoy no está validado ni a nivel modelo ni serializer, se asume por construcción ya que `customer` sale de un queryset scopeado); no hay test de concurrencia sobre `transition_order` (dos requests cambiando el mismo pedido a la vez). Quedan anotados para revisar si aparece un caso real, no vale la pena un test especulativo ahora.
 
 ### Etapa 6 — Frontend: fundación + flujos manuales
 

@@ -8,6 +8,14 @@ from .models import Order, OrderEvent
 # sentido, por ejemplo, "rechazar" un pedido que ya está en camino --
 # eso es una decisión de diseño de esta implementación, la spec no
 # detalla desde qué estados se puede llegar a cada uno.
+#
+# Pendiente de revisar en Fase 2: EN_CAMINO -> CANCELADO está
+# permitido (tiene sentido operativo: se cae el delivery, el cliente
+# cancela a último momento) pero hoy es una cancelación simple, sin
+# motivo obligatorio. Cuando el bot empiece a disparar cancelaciones
+# automáticas -- y sobre todo si en algún momento hay lógica de
+# reembolso o de costo de envío ya gastado -- ese caso puntual
+# probablemente necesite más que un cambio de estado liso.
 TRANSITIONS = {
     Order.ESTADO_PENDIENTE: {
         Order.ESTADO_CONFIRMADO,
