@@ -191,3 +191,82 @@ class OrderReadAPITests(TestCase):
     def test_customer_phone_de_otro_tenant_no_devuelve_nada(self):
         response = self.client.get("/api/orders/", {"customer_phone": self.customer_b.telefono})
         self.assertEqual(response.data, [])
+
+
+class OrderCreateAPITests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-create", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-create", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-create", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.customer_a = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.product_a = Product.all_objects.create(
+            tenant=self.tenant_a, nombre="Chipa", precio="2000.00", unidad="docena"
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.product_b = Product.all_objects.create(
+            tenant=self.tenant_b, nombre="Milanesa", precio="5000.00", unidad="kg"
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_crea_pedido_con_items_y_congela_el_precio(self):
+        response = self.client.post(
+            "/api/orders/",
+            {
+                "customer": self.customer_a.id,
+                "canal": Order.CANAL_MANUAL,
+                "items": [{"product": self.product_a.id, "cantidad": "3"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        order = Order.all_objects.get(id=response.data["id"])
+        self.assertEqual(order.tenant_id, self.tenant_a.id)
+        self.assertEqual(order.estado, Order.ESTADO_PENDIENTE)
+
+        item = order.items.get()
+        self.assertEqual(str(item.precio_unitario_snapshot), "2000.00")
+
+        self.product_a.precio = "9999.00"
+        self.product_a.save()
+        item.refresh_from_db()
+        self.assertEqual(str(item.precio_unitario_snapshot), "2000.00")
+
+    def test_no_puede_crear_pedido_sin_items(self):
+        response = self.client.post(
+            "/api/orders/",
+            {"customer": self.customer_a.id, "canal": Order.CANAL_MANUAL, "items": []},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_no_puede_usar_producto_de_otro_tenant(self):
+        response = self.client.post(
+            "/api/orders/",
+            {
+                "customer": self.customer_a.id,
+                "canal": Order.CANAL_MANUAL,
+                "items": [{"product": self.product_b.id, "cantidad": "1"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_no_puede_usar_cliente_de_otro_tenant(self):
+        response = self.client.post(
+            "/api/orders/",
+            {
+                "customer": self.customer_b.id,
+                "canal": Order.CANAL_MANUAL,
+                "items": [{"product": self.product_a.id, "cantidad": "1"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)

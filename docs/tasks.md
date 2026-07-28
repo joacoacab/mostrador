@@ -75,7 +75,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   `GET /orders` (filtro por estado/cliente/fecha), `GET /orders/{id}`, `GET /orders?customer_phone=`.
   Hecho cuando: tests cubren los filtros y el scoping por tenant.
 
-- [ ] **11. API de `Order` — creación**
+- [x] **11. API de `Order` — creación**
   `POST /orders` con sus `OrderItem`, copiando `precio_unitario_snapshot` del producto al momento de la creación.
   Hecho cuando: test verifica que el precio queda "congelado" en el pedido aunque el producto cambie de precio después.
 
