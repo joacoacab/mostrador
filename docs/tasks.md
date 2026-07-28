@@ -43,15 +43,15 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Middleware o manager custom que fuerza el filtro de tenant en cada query.
   Hecho cuando: existe un test automatizado que prueba que un query sin tenant explícito no devuelve datos de otro tenant (usando los modelos `Tenant`/`User` ya creados).
 
-- [ ] **7a. Modelo `Product`**
+- [x] **7a. Modelo `Product`**
   Campos según spec (`nombre`, `precio`, `unidad`, `disponible`, `origen`, `external_id`) + migración, scopeado por tenant (tarea 6).
   Hecho cuando: migración aplica, test de scoping pasa para `Product`.
 
-- [ ] **7b. Modelo `Customer`**
+- [x] **7b. Modelo `Customer`**
   Campos según spec (`telefono` único por tenant, `nombre`, `created_at`) + migración, scopeado por tenant.
   Hecho cuando: migración aplica, test de scoping pasa para `Customer`.
 
-- [ ] **7c. Modelos `Order` + `OrderItem`**
+- [x] **7c. Modelos `Order` + `OrderItem`**
   Campos según spec sección 3.1, `OrderItem` con `precio_unitario_snapshot` (copia el precio al momento del pedido) + migraciones, scopeados por tenant.
   Hecho cuando: migraciones aplican, test de scoping pasa para `Order`, y un `OrderItem` creado conserva el precio aunque el `Product` cambie de precio después.
 
