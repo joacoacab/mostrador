@@ -1,0 +1,7 @@
+[tool.ruff]
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+# RUF012: Django's ModelAdmin/Meta idioms rely on mutable class attributes
+# (list_display, prepopulated_fields, etc.) by design.
+ignore = ["RUF012"]
