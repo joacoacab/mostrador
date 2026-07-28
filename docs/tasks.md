@@ -55,7 +55,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Campos según spec sección 3.1, `OrderItem` con `precio_unitario_snapshot` (copia el precio al momento del pedido) + migraciones, scopeados por tenant.
   Hecho cuando: migraciones aplican, test de scoping pasa para `Order`, y un `OrderItem` creado conserva el precio aunque el `Product` cambie de precio después.
 
-- [ ] **7d. Modelo `OrderEvent`**
+- [x] **7d. Modelo `OrderEvent`**
   Auditoría (`estado_anterior`, `estado_nuevo`, `actor`, `created_at`) + migración.
   Hecho cuando: migración aplica, se puede crear un `OrderEvent` asociado a un `Order`.
 

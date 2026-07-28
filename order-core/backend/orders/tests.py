@@ -4,7 +4,7 @@ from catalog.models import Product
 from tenancy.context import tenant_context
 from tenants.models import Tenant
 
-from .models import Customer, Order, OrderItem
+from .models import Customer, Order, OrderEvent, OrderItem
 
 
 class CustomerScopingTests(TestCase):
@@ -99,3 +99,25 @@ class OrderItemSnapshotTests(TestCase):
 
         item.refresh_from_db()
         self.assertEqual(str(item.precio_unitario_snapshot), "2000.00")
+
+
+class OrderEventTests(TestCase):
+    def setUp(self):
+        self.tenant = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-event", plan="basico")
+        self.customer = Customer.all_objects.create(
+            tenant=self.tenant, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.order = Order.all_objects.create(
+            tenant=self.tenant, customer=self.customer, canal=Order.CANAL_MANUAL
+        )
+
+    def test_crea_evento_asociado_al_pedido(self):
+        event = OrderEvent.objects.create(
+            order=self.order,
+            estado_anterior=None,
+            estado_nuevo=Order.ESTADO_PENDIENTE,
+            actor=OrderEvent.ACTOR_SISTEMA,
+        )
+
+        self.assertEqual(list(self.order.events.all()), [event])
+        self.assertIsNotNone(event.created_at)

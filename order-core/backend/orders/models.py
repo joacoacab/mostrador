@@ -68,3 +68,19 @@ class OrderItem(models.Model):
 
     def __str__(self):
         return f"{self.cantidad} x {self.product.nombre}"
+
+
+class OrderEvent(models.Model):
+    ACTOR_BOT = "bot"
+    ACTOR_SISTEMA = "sistema"
+
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="events")
+    estado_anterior = models.CharField(
+        max_length=20, choices=Order.ESTADO_CHOICES, blank=True, null=True
+    )
+    estado_nuevo = models.CharField(max_length=20, choices=Order.ESTADO_CHOICES)
+    actor = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Pedido #{self.order_id}: {self.estado_anterior} -> {self.estado_nuevo}"
