@@ -116,7 +116,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Proyecto Next.js + TypeScript + Tailwind en `order-core/frontend`, configuración de PWA con `next-pwa` (manifest, service worker) desde el arranque.
   Hecho cuando: `npm run build` genera el manifest y el service worker; la app instala como PWA en Chrome/Android.
 
-- [ ] **16. Login**
+- [x] **16. Login**
   Pantalla de login que consume la API de la tarea 8, guarda el JWT y protege las rutas de `/panel`.
   Hecho cuando: login exitoso redirige al panel; sin sesión, `/panel` redirige a login.
 

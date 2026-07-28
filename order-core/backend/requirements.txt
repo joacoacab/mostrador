@@ -4,3 +4,4 @@ psycopg2-binary==2.9.12
 python-dotenv==1.2.2
 ruff==0.16.0
 djangorestframework-simplejwt==5.5.1
+django-cors-headers==4.9.0
