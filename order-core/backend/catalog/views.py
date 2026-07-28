@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import generics, viewsets
 
 from .models import Product
 from .serializers import ProductSerializer
@@ -18,3 +18,17 @@ class ProductViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(tenant=self.request.user.tenant)
+
+
+class CatalogView(generics.ListAPIView):
+    """GET /catalog de la spec (sección 3.3): productos disponibles.
+
+    Versión standalone -- sirve directo desde Product. El modo
+    integración (delegar a un proveedor externo como La Balanza) es
+    Fase 4, todavía no existe acá.
+    """
+
+    serializer_class = ProductSerializer
+
+    def get_queryset(self):
+        return Product.objects.filter(disponible=True)

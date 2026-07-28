@@ -83,7 +83,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   `PATCH /orders/{id}/status` con validación de la máquina de estados (spec sección 3.2) y creación automática de `OrderEvent` en cada transición.
   Hecho cuando: tests cubren todas las transiciones válidas e inválidas descritas en la spec, y cada transición válida deja un `OrderEvent` registrado con el actor correcto.
 
-- [ ] **13. Endpoint `GET /catalog`**
+- [x] **13. Endpoint `GET /catalog`**
   Versión standalone, sirve productos disponibles directo desde `Product` (el modo integración con La Balanza queda para Fase 4).
   Hecho cuando: devuelve solo productos `disponible=true` del tenant correspondiente.
 

@@ -102,3 +102,35 @@ class ProductAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.product_a.refresh_from_db()
         self.assertEqual(str(self.product_a.precio), "5500.00")
+
+
+class CatalogViewTests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-catalog", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-catalog", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-catalog", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.disponible = Product.all_objects.create(
+            tenant=self.tenant_a, nombre="Chipa", precio="2000", unidad="docena", disponible=True
+        )
+        self.no_disponible = Product.all_objects.create(
+            tenant=self.tenant_a, nombre="Milanesa", precio="5000", unidad="kg", disponible=False
+        )
+        self.de_otro_tenant = Product.all_objects.create(
+            tenant=self.tenant_b, nombre="Empanada", precio="1000", unidad="unidad", disponible=True
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_solo_lista_disponibles_del_tenant_propio(self):
+        response = self.client.get("/api/catalog/")
+        self.assertEqual(response.status_code, 200)
+        nombres = {p["nombre"] for p in response.data}
+        self.assertEqual(nombres, {"Chipa"})
+
+    def test_rechaza_sin_autenticacion(self):
+        client = APIClient()
+        response = client.get("/api/catalog/")
+        self.assertEqual(response.status_code, 401)
