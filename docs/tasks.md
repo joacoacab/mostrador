@@ -67,7 +67,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 4 — API de catálogo y pedidos
 
-- [ ] **9. API CRUD de `Product`**
+- [x] **9. API CRUD de `Product`**
   `GET/POST/PATCH/DELETE`, scopeada por tenant y protegida por auth (tarea 8).
   Hecho cuando: tests cubren que un usuario del tenant A no puede leer ni modificar productos del tenant B.
 
