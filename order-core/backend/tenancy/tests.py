@@ -22,17 +22,17 @@ class TenantScopedManagerTests(TestCase):
 
     def test_scoped_manager_only_returns_current_tenant(self):
         with tenant_context(self.tenant_a.id):
-            users = list(User.tenant_scoped.all())
+            users = list(User.objects.all())
         self.assertEqual(users, [self.user_a])
 
     def test_scoped_manager_does_not_leak_across_tenants(self):
         with tenant_context(self.tenant_b.id):
-            usernames = set(User.tenant_scoped.values_list("username", flat=True))
+            usernames = set(User.objects.values_list("username", flat=True))
         self.assertIn(self.user_b.username, usernames)
         self.assertNotIn(self.user_a.username, usernames)
 
     def test_scoped_manager_without_tenant_context_returns_nothing(self):
-        users = list(User.tenant_scoped.all())
+        users = list(User.objects.all())
         self.assertEqual(users, [])
 
 

@@ -61,7 +61,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 3 — Auth
 
-- [ ] **8. Auth JWT**
+- [x] **8. Auth JWT**
   Login con rol admin/empleado sobre el modelo `User`.
   Hecho cuando: login devuelve un JWT válido; un endpoint protegido de prueba rechaza requests sin token y rechaza acciones fuera del rol permitido.
 

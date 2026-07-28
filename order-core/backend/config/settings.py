@@ -84,6 +84,19 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 AUTH_USER_MODEL = 'accounts.User'
 
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.TenantUnscopedModelBackend',
+]
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'accounts.authentication.TenantAwareJWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
