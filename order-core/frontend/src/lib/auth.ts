@@ -46,13 +46,17 @@ export async function login(username: string, password: string): Promise<void> {
 // se puede agregar refresh automático más adelante si molesta en la
 // práctica.
 export async function fetchMe(): Promise<MeResponse | null> {
-  const token = getAccessToken();
-  if (!token) return null;
-
-  const response = await fetch(apiUrl("/api/auth/me/"), {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
+  const response = await authFetch("/api/auth/me/");
   if (!response.ok) return null;
   return response.json();
+}
+
+// Fetch autenticado: agrega el access token guardado como header
+// Authorization. Base para cualquier llamada a la API que requiera
+// sesión (productos, pedidos, etc).
+export async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const token = getAccessToken();
+  const headers = new Headers(init.headers);
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  return fetch(apiUrl(path), { ...init, headers });
 }

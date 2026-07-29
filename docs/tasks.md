@@ -120,7 +120,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Pantalla de login que consume la API de la tarea 8, guarda el JWT y protege las rutas de `/panel`.
   Hecho cuando: login exitoso redirige al panel; sin sesión, `/panel` redirige a login.
 
-- [ ] **17. CRUD de productos**
+- [x] **17. CRUD de productos**
   Pantalla en `/panel` que consume la API de la tarea 9.
   Hecho cuando: se puede crear, editar, listar y borrar un producto desde la UI.
 
