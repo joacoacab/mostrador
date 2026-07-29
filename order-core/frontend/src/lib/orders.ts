@@ -67,3 +67,9 @@ export async function getOrder(id: number): Promise<Order> {
   if (!res.ok) throw new Error("No se pudo cargar el pedido.");
   return res.json();
 }
+
+export async function listOrders(): Promise<Order[]> {
+  const res = await authFetch("/api/orders/");
+  if (!res.ok) throw new Error("No se pudieron cargar los pedidos.");
+  return res.json();
+}

@@ -134,7 +134,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 7 — Frontend: paneles con polling
 
-- [ ] **19. Polling corto**
+- [x] **19. Polling corto**
   Hook/mecanismo de refresco periódico (5s, según decisión asumida arriba) contra la API de pedidos.
   Hecho cuando: la UI refleja un cambio de estado hecho por otro cliente/pestaña dentro de ~5s sin recargar la página.
 
