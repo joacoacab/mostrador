@@ -128,6 +128,10 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Formulario en `/panel` que consume la API de las tareas 10-11 (elegir cliente/productos, crear pedido).
   Hecho cuando: se puede crear un pedido desde la UI y verlo reflejado vía `GET /orders/{id}`.
 
+- [x] **18b. Documentación de API (drf-spectacular)**
+  Instalar `drf-spectacular`, configurarlo en `settings.py`, exponer `/api/schema/` (esquema OpenAPI) y `/api/docs/` (Swagger UI).
+  Hecho cuando: `/api/docs/` muestra todos los endpoints existentes (auth, products, orders, customers, catalog) navegables y probables desde el browser.
+
 ### Etapa 7 — Frontend: paneles con polling
 
 - [ ] **19. Polling corto**

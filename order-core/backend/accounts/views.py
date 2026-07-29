@@ -1,8 +1,10 @@
+from drf_spectacular.utils import extend_schema
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .permissions import IsAdminRole
+from .serializers import MeSerializer, PingSerializer
 
 
 class MeView(APIView):
@@ -12,6 +14,7 @@ class MeView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(responses=MeSerializer)
     def get(self, request):
         user = request.user
         return Response(
@@ -30,5 +33,6 @@ class AdminOnlyPingView(APIView):
 
     permission_classes = [IsAuthenticated, IsAdminRole]
 
+    @extend_schema(responses=PingSerializer)
     def get(self, request):
         return Response({"ok": True})

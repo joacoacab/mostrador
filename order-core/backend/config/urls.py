@@ -6,6 +6,8 @@ The `urlpatterns` list routes URLs to views. For more information please see:
 """
 from django.contrib import admin
 from django.urls import include, path
+from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
+from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from accounts.views import AdminOnlyPingView, MeView
@@ -18,4 +20,18 @@ urlpatterns = [
     path('api/auth/admin-ping/', AdminOnlyPingView.as_view(), name='auth_admin_ping'),
     path('api/', include('catalog.urls')),
     path('api/', include('orders.urls')),
+    # Documentación de API (tarea 18b). Público (AllowAny): la
+    # documentación en sí no debería requerir estar logueado para
+    # verse, aunque "probarla" desde el Swagger UI sí necesita pegar
+    # un token válido -- eso es UX estándar de OpenAPI/Swagger.
+    path(
+        'api/schema/',
+        SpectacularAPIView.as_view(permission_classes=[AllowAny]),
+        name='schema',
+    ),
+    path(
+        'api/docs/',
+        SpectacularSwaggerView.as_view(url_name='schema', permission_classes=[AllowAny]),
+        name='swagger-ui',
+    ),
 ]

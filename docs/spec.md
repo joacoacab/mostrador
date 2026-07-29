@@ -78,6 +78,8 @@ Endpoints mínimos:
 - `GET /orders?customer_phone=` — historial de un cliente
 - Webhooks salientes: `order.status_changed`, `order.created`, `stock.unavailable`
 
+La API completa (incluida `Customer`, que terminó haciendo falta para el alta manual de pedidos y no estaba en la lista original) queda documentada automáticamente vía `drf-spectacular`: esquema OpenAPI en `/api/schema/`, Swagger UI navegable en `/api/docs/`.
+
 ### 3.4 Panel interno
 
 - Vista tipo tablero (kanban) por estado de pedido.
