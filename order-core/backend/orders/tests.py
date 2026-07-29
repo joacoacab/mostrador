@@ -382,3 +382,56 @@ class OrderStatusAPITests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.order_b.refresh_from_db()
         self.assertEqual(self.order_b.estado, Order.ESTADO_PENDIENTE)
+
+
+class CustomerAPITests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-cust", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-cust", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-cust", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.customer_a = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_lista_solo_clientes_del_tenant_propio(self):
+        response = self.client.get("/api/customers/")
+        self.assertEqual(response.status_code, 200)
+        nombres = {c["nombre"] for c in response.data}
+        self.assertEqual(nombres, {"Cliente A"})
+
+    def test_busca_por_telefono(self):
+        response = self.client.get("/api/customers/", {"telefono": self.customer_a.telefono})
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["id"], self.customer_a.id)
+
+    def test_busca_por_telefono_de_otro_tenant_no_encuentra_nada(self):
+        response = self.client.get("/api/customers/", {"telefono": self.customer_b.telefono})
+        self.assertEqual(response.data, [])
+
+    def test_crea_cliente_lo_asocia_al_tenant_del_usuario(self):
+        response = self.client.post(
+            "/api/customers/", {"telefono": "+5493333333", "nombre": "Cliente Nuevo"}
+        )
+        self.assertEqual(response.status_code, 201)
+        created = Customer.all_objects.get(id=response.data["id"])
+        self.assertEqual(created.tenant_id, self.tenant_a.id)
+
+    def test_crear_con_telefono_duplicado_da_400_no_500(self):
+        response = self.client.post(
+            "/api/customers/", {"telefono": self.customer_a.telefono, "nombre": "Otro Nombre"}
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_mismo_telefono_en_otro_tenant_no_es_conflicto(self):
+        response = self.client.post(
+            "/api/customers/", {"telefono": self.customer_b.telefono, "nombre": "Cliente Repetido"}
+        )
+        self.assertEqual(response.status_code, 201)

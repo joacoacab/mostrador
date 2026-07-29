@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
-from .models import Order, OrderItem
+from .models import Customer, Order, OrderItem
+
+
+class CustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Customer
+        fields = ["id", "telefono", "nombre", "created_at"]
+        read_only_fields = ["id", "created_at"]
 
 
 class OrderItemSerializer(serializers.ModelSerializer):

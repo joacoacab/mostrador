@@ -42,3 +42,12 @@ export async function deleteProduct(id: number): Promise<void> {
   const res = await authFetch(`/api/products/${id}/`, { method: "DELETE" });
   if (!res.ok) throw new Error("No se pudo borrar el producto.");
 }
+
+// GET /catalog (tarea 13): solo productos disponibles. Es lo que
+// tiene sentido ofrecer al armar un pedido, a diferencia del listado
+// completo de /api/products/ que usa la pantalla de gestión.
+export async function listCatalog(): Promise<Product[]> {
+  const res = await authFetch("/api/catalog/");
+  if (!res.ok) throw new Error("No se pudo cargar el catálogo.");
+  return res.json();
+}

@@ -124,7 +124,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Pantalla en `/panel` que consume la API de la tarea 9.
   Hecho cuando: se puede crear, editar, listar y borrar un producto desde la UI.
 
-- [ ] **18. Alta manual de pedido**
+- [x] **18. Alta manual de pedido**
   Formulario en `/panel` que consume la API de las tareas 10-11 (elegir cliente/productos, crear pedido).
   Hecho cuando: se puede crear un pedido desde la UI y verlo reflejado vía `GET /orders/{id}`.
 

@@ -1,11 +1,38 @@
+from django.db import IntegrityError
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
-from .models import Order
-from .serializers import OrderCreateSerializer, OrderSerializer, OrderStatusSerializer
+from .models import Customer, Order
+from .serializers import (
+    CustomerSerializer,
+    OrderCreateSerializer,
+    OrderSerializer,
+    OrderStatusSerializer,
+)
 from .state_machine import InvalidTransition, transition_order
+
+
+class CustomerViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    # Solo list+create: todavía no hace falta editar/borrar clientes
+    # desde acá (no lo pide ninguna tarea). "Elegir cliente" en el
+    # alta de pedido es: buscar por teléfono (?telefono=) y, si no
+    # existe, crearlo con este mismo endpoint.
+    serializer_class = CustomerSerializer
+
+    def get_queryset(self):
+        queryset = Customer.objects.all().order_by("nombre")
+        telefono = self.request.query_params.get("telefono")
+        if telefono:
+            queryset = queryset.filter(telefono=telefono)
+        return queryset
+
+    def perform_create(self, serializer):
+        try:
+            serializer.save(tenant=self.request.user.tenant)
+        except IntegrityError as exc:
+            raise ValidationError({"telefono": "Ya existe un cliente con ese teléfono."}) from exc
 
 
 class OrderViewSet(
