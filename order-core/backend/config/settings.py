@@ -101,6 +101,12 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# DeviceTokenAuthentication (tarea 21, pantallas pareadas) NO va acá:
+# vistas como MeView asumen un User real (user.rol, user.nombre) y
+# romperían con un dispositivo autenticado. Se agrega puntualmente
+# solo en OrderViewSet, que es lo único que la pantalla necesita
+# leer. Ver tenants/authentication.py.
+
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Mostrador API',
     'DESCRIPTION': 'Order Core: catálogo, clientes y pedidos, multi-tenant por tenant_id.',

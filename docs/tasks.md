@@ -142,7 +142,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Tablero por estado, filtros por canal/cliente/fecha, acción "marcar sin stock" (dispara el evento/hook, sin bot real todavía — placeholder), actualización vía polling (tarea 19).
   Hecho cuando: mover un pedido de columna dispara `PATCH /orders/{id}/status`, y los filtros funcionan sobre datos reales.
 
-- [ ] **21. Pantalla tablet/TV** (`/pantalla`, spec sección 3.5)
+- [x] **21. Pantalla tablet/TV** (`/pantalla`, spec sección 3.5)
   Solo lectura, pairing por código numérico (decisión asumida arriba), tipografía grande, columnas por estado, auto-ocultado de pedidos entregados después de un tiempo configurable, mismo polling que el panel.
   Hecho cuando: una tablet pareada muestra pedidos en tiempo real (vía polling) y los entregados desaparecen solos pasado el tiempo configurado.
 

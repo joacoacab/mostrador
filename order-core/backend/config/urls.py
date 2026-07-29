@@ -20,6 +20,7 @@ urlpatterns = [
     path('api/auth/admin-ping/', AdminOnlyPingView.as_view(), name='auth_admin_ping'),
     path('api/', include('catalog.urls')),
     path('api/', include('orders.urls')),
+    path('api/', include('tenants.urls')),
     # Documentación de API (tarea 18b). Público (AllowAny): la
     # documentación en sí no debería requerir estar logueado para
     # verse, aunque "probarla" desde el Swagger UI sí necesita pegar

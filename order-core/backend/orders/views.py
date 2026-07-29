@@ -2,7 +2,12 @@ from django.db import IntegrityError
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from accounts.authentication import TenantAwareJWTAuthentication
+from tenants.authentication import DeviceTokenAuthentication
+from tenants.permissions import DenyDeviceWrites
 
 from .models import Customer, Order
 from .serializers import (
@@ -45,6 +50,12 @@ class OrderViewSet(
     # update/delete genéricos de un pedido. El cambio de estado va a
     # tener su propio endpoint validado contra la máquina de estados
     # (tarea 12), no un PATCH libre.
+
+    # DeviceTokenAuthentication solo acá (no global, ver settings.py):
+    # es el único endpoint que la pantalla pareada (tarea 21)
+    # necesita, y DenyDeviceWrites la deja en solo lectura.
+    authentication_classes = [TenantAwareJWTAuthentication, DeviceTokenAuthentication]
+    permission_classes = [IsAuthenticated, DenyDeviceWrites]
 
     def get_serializer_class(self):
         if self.action == "create":
