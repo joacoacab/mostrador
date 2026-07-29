@@ -1,24 +1,27 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 // Polling corto (spec sección 3.4 / 6, decisión de Fase 1: sin
 // WebSocket todavía). Reusable para cualquier pantalla que necesite
-// refrescarse sola -- kanban (tarea 20), pantalla tablet (tarea 21).
+// refrescarse sola -- lista de pedidos (tarea 19), kanban (tarea 20),
+// pantalla tablet (tarea 21).
+//
+// El efecto depende de `fetcher`: si cambia de identidad (ej. porque
+// cambiaron filtros), refetchea de inmediato en vez de esperar al
+// próximo tick. Quien llama con un fetcher que depende de estado
+// (filtros, etc) tiene que memoizarlo con useCallback -- si no, un
+// fetcher recreado en cada render reiniciaría el intervalo todo el
+// tiempo.
 export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const fetcherRef = useRef(fetcher);
-
-  useEffect(() => {
-    fetcherRef.current = fetcher;
-  }, [fetcher]);
 
   useEffect(() => {
     let active = true;
 
     function poll() {
-      fetcherRef.current()
+      fetcher()
         .then((result) => {
           if (active) {
             setData(result);
@@ -36,7 +39,7 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number) {
       active = false;
       clearInterval(id);
     };
-  }, [intervalMs]);
+  }, [fetcher, intervalMs]);
 
   // No se llama desde ningún efecto -- solo pensado para refrescos
   // manuales disparados por el usuario (ej. después de una acción),
@@ -44,7 +47,7 @@ export function usePolling<T>(fetcher: () => Promise<T>, intervalMs: number) {
   // react-hooks/set-state-in-effect.
   async function refetch() {
     try {
-      setData(await fetcherRef.current());
+      setData(await fetcher());
       setError(null);
     } catch {
       setError("No se pudo actualizar.");

@@ -138,7 +138,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
   Hook/mecanismo de refresco periódico (5s, según decisión asumida arriba) contra la API de pedidos.
   Hecho cuando: la UI refleja un cambio de estado hecho por otro cliente/pestaña dentro de ~5s sin recargar la página.
 
-- [ ] **20. Panel kanban** (`/panel`, spec sección 3.4)
+- [x] **20. Panel kanban** (`/panel`, spec sección 3.4)
   Tablero por estado, filtros por canal/cliente/fecha, acción "marcar sin stock" (dispara el evento/hook, sin bot real todavía — placeholder), actualización vía polling (tarea 19).
   Hecho cuando: mover un pedido de columna dispara `PATCH /orders/{id}/status`, y los filtros funcionan sobre datos reales.
 

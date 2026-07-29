@@ -146,7 +146,7 @@ class OrderReadAPITests(TestCase):
             estado=Order.ESTADO_PENDIENTE,
         )
         self.order_a2 = Order.all_objects.create(
-            tenant=self.tenant_a, customer=self.customer_a2, canal=Order.CANAL_MANUAL,
+            tenant=self.tenant_a, customer=self.customer_a2, canal=Order.CANAL_WHATSAPP,
             estado=Order.ESTADO_CONFIRMADO,
         )
         self.customer_b = Customer.all_objects.create(
@@ -168,6 +168,16 @@ class OrderReadAPITests(TestCase):
         response = self.client.get("/api/orders/", {"estado": Order.ESTADO_CONFIRMADO})
         ids = {o["id"] for o in response.data}
         self.assertEqual(ids, {self.order_a2.id})
+
+    def test_filtra_por_canal(self):
+        response = self.client.get("/api/orders/", {"canal": Order.CANAL_WHATSAPP})
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a2.id})
+
+    def test_incluye_nombre_y_telefono_del_cliente(self):
+        response = self.client.get(f"/api/orders/{self.order_a1.id}/")
+        self.assertEqual(response.data["customer_nombre"], "Cliente 1")
+        self.assertEqual(response.data["customer_telefono"], "+5491111111")
 
     def test_filtra_por_customer(self):
         response = self.client.get("/api/orders/", {"customer": self.customer_a1.id})
@@ -228,6 +238,7 @@ class OrderCreateAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["items"][0]["product_nombre"], "Chipa")
         order = Order.all_objects.get(id=response.data["id"])
         self.assertEqual(order.tenant_id, self.tenant_a.id)
         self.assertEqual(order.estado, Order.ESTADO_PENDIENTE)

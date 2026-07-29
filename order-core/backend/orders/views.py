@@ -56,11 +56,20 @@ class OrderViewSet(
         # catalog/views.py::ProductViewSet.get_queryset sobre por qué
         # `queryset = Order.objects.all()` a nivel de clase rompería
         # el scoping por tenant.
-        queryset = Order.objects.all().order_by("-created_at")
+        queryset = (
+            Order.objects.all()
+            .select_related("customer")
+            .prefetch_related("items__product")
+            .order_by("-created_at")
+        )
 
         estado = self.request.query_params.get("estado")
         if estado:
             queryset = queryset.filter(estado=estado)
+
+        canal = self.request.query_params.get("canal")
+        if canal:
+            queryset = queryset.filter(canal=canal)
 
         customer_id = self.request.query_params.get("customer")
         if customer_id:

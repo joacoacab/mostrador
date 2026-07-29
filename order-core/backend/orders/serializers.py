@@ -11,20 +11,29 @@ class CustomerSerializer(serializers.ModelSerializer):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    product_nombre = serializers.CharField(source="product.nombre", read_only=True)
+
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "cantidad", "precio_unitario_snapshot"]
+        fields = ["id", "product", "product_nombre", "cantidad", "precio_unitario_snapshot"]
         read_only_fields = ["id", "precio_unitario_snapshot"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    # Nombre/teléfono del cliente aplanados acá -- el kanban (tarea
+    # 20) necesita mostrar algo más útil que un id en cada tarjeta, y
+    # no amerita todavía un serializer anidado completo.
+    customer_nombre = serializers.CharField(source="customer.nombre", read_only=True)
+    customer_telefono = serializers.CharField(source="customer.telefono", read_only=True)
 
     class Meta:
         model = Order
         fields = [
             "id",
             "customer",
+            "customer_nombre",
+            "customer_telefono",
             "canal",
             "estado",
             "notas",

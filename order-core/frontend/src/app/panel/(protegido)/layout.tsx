@@ -45,8 +45,8 @@ export default function ProtectedPanelLayout({ children }: { children: ReactNode
           <Link href="/panel/productos" className="text-sm text-gray-500 hover:text-gray-900">
             Productos
           </Link>
-          <Link href="/panel/pedidos" className="text-sm text-gray-500 hover:text-gray-900">
-            Pedidos
+          <Link href="/panel/pedidos/nuevo" className="text-sm text-gray-500 hover:text-gray-900">
+            Nuevo pedido
           </Link>
         </nav>
         <div className="flex items-center gap-4 text-sm">
