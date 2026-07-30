@@ -153,7 +153,7 @@ Reutilizar lo ya probado en La Balanza para bajar riesgo, modernizando el fronte
 - **Order Core (backend)**: Django + DRF + PostgreSQL (multi-tenant por `tenant_id`). Se mantiene sobre Django porque ya está resuelto el patrón multi-tenant en otros proyectos y da admin gratis — cambiarlo ahora sería riesgo especulativo sin necesidad real.
 - **Frontend**: Next.js + TypeScript + Tailwind, en vez de Vite+React plano — tipado real en los contratos con la API y mejor soporte de PWA (`next-pwa`).
 - **WhatsApp Agent**: servicio aparte (Node/TypeScript o Python, a definir en Fase 2), Claude API con tool use, cola de mensajes (Redis/simple queue). Se comunica con el Order Core por HTTP, no comparte código — por eso el lenguaje del Order Core no condiciona al del bot.
-- **Infra**: AWS, mismo esquema que La Balanza — EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia. RDS se evalúa más adelante, cuando haya carga real o un cliente pagando que justifique el costo de un servicio administrado con backups/Multi-AZ.
+- **Infra**: AWS, mismo esquema que La Balanza — EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia. RDS se evalúa más adelante, cuando haya carga real o un cliente pagando que justifique el costo de un servicio administrado con backups/Multi-AZ. La instancia EC2 es la misma que ya usa La Balanza (dev server compartido) — "infra separada" (sección 8) se resolvió como aislamiento por contenedores + ruteo por dominio en Traefik, no como una instancia física aparte; ver sección 7, tarea 22.
 
 ---
 
@@ -173,7 +173,7 @@ Desglose de tareas:
 8. Frontend: panel kanban (sección 3.4) con actualización en tiempo real (polling corto — WebSocket queda para más adelante si hace falta).
 9. Frontend: pantalla tablet/TV de solo lectura (sección 3.5).
 10. Tests de la máquina de estados y del scoping multi-tenant (que un tenant no pueda ver datos de otro).
-11. Deploy: EC2 + Traefik + GitHub Actions, infra propia y separada de La Balanza, PostgreSQL en Docker en la misma instancia (RDS se evalúa más adelante).
+11. Deploy: EC2 + Traefik + GitHub Actions. Misma instancia EC2 que La Balanza (dev server compartido), aislado por contenedores Docker propios (`docker-compose.prod.yml`, red `internal` propia) + ruteo por dominio en Traefik (`api.mostrador.siracnetwork.com`, `mostrador.siracnetwork.com`) — no una instancia física aparte, ver sección 6. PostgreSQL en Docker en la misma instancia (RDS se evalúa más adelante). Runner de GitHub Actions self-hosted registrado específicamente para este repo (no comparte runner con La Balanza).
 
 **Fase 2 — Bot de WhatsApp (texto)**
 - Integración con Meta Cloud API, agente con tools básicas (catálogo + crear pedido + consultar estado).

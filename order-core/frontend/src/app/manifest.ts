@@ -1,5 +1,9 @@
 import type { MetadataRoute } from "next";
 
+// Requerido por output: "export" (tarea 22) -- sin esto, next build
+// no sabe que esta ruta se puede resolver en build time.
+export const dynamic = "force-static";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Mostrador",

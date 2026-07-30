@@ -1,0 +1,48 @@
+name: Deploy Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "order-core/frontend/**"
+
+jobs:
+  build-deploy:
+    name: Build (export estático) y deploy frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build
+        env:
+          NEXT_PUBLIC_API_URL: https://api.mostrador.siracnetwork.com
+        run: |
+          cd order-core/frontend
+          npm ci
+          npm run build
+
+      - name: Copiar out/ al servidor
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          rsync -avz --delete \
+            -e "ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no" \
+            order-core/frontend/out/ \
+            ubuntu@3.224.47.11:/home/ubuntu/mostrador-frontend/
+          rm /tmp/deploy_key
+
+      - name: Restart Nginx
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > /tmp/deploy_key
+          chmod 600 /tmp/deploy_key
+          ssh -i /tmp/deploy_key -o StrictHostKeyChecking=no ubuntu@3.224.47.11 \
+            "docker compose -f /home/ubuntu/mostrador/docker-compose.prod.yml restart nginx"
+          rm /tmp/deploy_key

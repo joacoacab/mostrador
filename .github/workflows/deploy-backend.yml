@@ -1,0 +1,42 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "order-core/backend/**"
+      - "order-core/docker-compose.prod.yml"
+
+jobs:
+  deploy:
+    name: Build y deploy en servidor
+    runs-on: [self-hosted, mostrador]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sincronizar código al directorio de producción
+        run: |
+          mkdir -p /home/ubuntu/mostrador/backend /home/ubuntu/mostrador/frontend
+          rsync -a --delete \
+            --exclude .venv \
+            --exclude __pycache__ \
+            --exclude .env \
+            --exclude staticfiles \
+            --exclude .ruff_cache \
+            "$GITHUB_WORKSPACE/order-core/backend/" /home/ubuntu/mostrador/backend/
+          cp "$GITHUB_WORKSPACE/order-core/docker-compose.prod.yml" /home/ubuntu/mostrador/
+          cp "$GITHUB_WORKSPACE/order-core/frontend/nginx.conf" /home/ubuntu/mostrador/frontend/
+
+      - name: Build y restart backend (sin tocar db ni nginx)
+        working-directory: /home/ubuntu/mostrador
+        run: |
+          docker compose -f docker-compose.prod.yml build web
+          docker compose -f docker-compose.prod.yml up -d --no-deps web
+
+      - name: Aplicar migraciones
+        working-directory: /home/ubuntu/mostrador
+        run: |
+          docker compose -f docker-compose.prod.yml exec -T web python manage.py migrate --noinput

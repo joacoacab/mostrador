@@ -11,14 +11,14 @@ Gestor de pedidos multi-rubro con panel interno, pantalla tipo tablet/TV para el
 - Si algo implementado se desvía de lo que dice `docs/spec.md`, avisar y proponer actualizar la spec — no dejar que quede desactualizada en silencio.
 
 ## Stack
-- Backend: Django + DRF + PostgreSQL, multi-tenant por `tenant_id`.
-- Frontend: React + Vite + Tailwind, como PWA (panel interno en `/panel`, pantalla de solo lectura en `/pantalla`).
-- Realtime: WebSocket (Django Channels) para actualizar kanban y pantalla tablet sin polling.
-- Deploy: EC2 + Traefik + GitHub Actions (infra propia, separada de otros proyectos).
+- Backend: Django + DRF + PostgreSQL, multi-tenant por `tenant_id`. Producción: gunicorn + whitenoise (estáticos), sin nginx delante del backend.
+- Frontend: Next.js (App Router) + TypeScript + Tailwind, export estático (`output: "export"`) — todas las páginas son client components, no hay nada server-side. PWA (manifest nativo + service worker mínimo, panel interno en `/panel`, pantalla de solo lectura en `/pantalla`).
+- Realtime: polling corto (5s) contra la API, sin WebSocket — decisión de Fase 1, ver `docs/spec.md` sección 6.
+- Deploy: EC2 + Traefik + GitHub Actions. La instancia EC2 es **compartida** con otros proyectos (La Balanza) — "infra separada" se resolvió como contenedores Docker aislados + ruteo por dominio en Traefik (provider de archivo, `~/traefik/routes.yml` en el server), no como una instancia física aparte. Cada proyecto tiene su propio `docker-compose`, su propia red `internal`, y su propio runner de GitHub Actions self-hosted registrado específicamente para ese repo.
 
 ## Convenciones
 - Commits en español, formato imperativo corto (ej. "agrega modelo de Order").
 - Un servicio de dominio agnóstico de rubro: nunca hardcodear lógica específica de un negocio (carnicería, chipacitos, etc.) en `order-core`. Cualquier especificidad de rubro va del lado de una integración externa.
 
 ## Estado actual
-Fase 1 (MVP Order Core standalone) — sin arrancar todavía.
+Fase 1 (MVP Order Core standalone) — en curso, ver `docs/tasks.md` para el detalle de qué está hecho.
