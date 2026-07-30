@@ -175,10 +175,84 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
   **Decisiones de infraestructura que se desviaron de lo planeado**: Next.js reemplazó a Vite+React (versión de Next mucho más nueva de lo esperado, sin `next-pwa` disponible), polling reemplazó a WebSocket, y el deploy terminó compartiendo la instancia EC2 con La Balanza (aislado por contenedores) en vez de una instancia separada. Las tres están documentadas en el lugar correspondiente de `docs/spec.md` (secciones 3.5, 3.6, 6, 7) en el momento en que se tomó cada decisión, no reconstruidas después.
 
-  **Aprobado por el usuario para pasar a Fase 2**: pendiente -- este checkpoint queda para que lo revise antes de arrancar.
+  **Aprobado por el usuario para pasar a Fase 2**: sí.
+
+---
+
+# Fase 2 — Bot de WhatsApp (texto)
+
+Basado en `docs/plan.md` (Fase 2). Alcance: integración con Meta Cloud API + agente con tools básicas (catálogo, crear pedido, consultar estado). Audio y el sistema completo de escalamiento con UI en el panel son Fase 3.
+
+Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript, Redis + worker desde el arranque, fallback genérico con log simple cuando el agente no puede resolver algo. **Proveedor de WhatsApp híbrido**: se desarrolla y prueba contra **WAHA** (no oficial, sin trámites) mientras se tramita Meta Business Verification; el core del bot no conoce el proveedor, habla con una interfaz (`WhatsAppProvider`) que cada uno implementa como adapter. Meta sigue siendo el destino final de producción (spec 4.3).
+
+**Bloqueante externo, no depende de código**: una API key de Anthropic propia para que el bot llame a Claude en producción. Con WAHA no hace falta esperar a Meta para nada del desarrollo -- las tareas marcadas 🔒 son específicamente las que sí dependen de tener las credenciales de Meta Business.
+
+### Etapa 9 — Order Core: lo que el bot necesita
+
+- [ ] **24. Info del tenant (horarios/ubicación/medios de pago)**
+  Campos nuevos en `Tenant` (u modelo aparte si crece) + admin para cargarlos + endpoint de lectura.
+  Hecho cuando: existe el campo/modelo, se puede cargar desde el admin, y hay un endpoint que lo devuelve.
+
+- [ ] **25. Autenticación de servicio para el bot**
+  Modelo `BotToken` (tenant + token, sin flujo de pairing -- se genera directo, a diferencia de `PairingCode`) + `BotTokenAuthentication`, agregada puntualmente donde el bot necesita pegarle (catálogo, pedidos, info del tenant) -- mismo criterio que la tarea 21 con `DeviceTokenAuthentication`, no global.
+  Hecho cuando: un token de bot puede leer catálogo/info y crear/consultar pedidos de su tenant, y no puede nada fuera de eso (tests de permisos, igual que la tarea 21).
+
+### Etapa 10 — Servicio `whatsapp-agent`
+
+- [ ] **26. Setup del servicio**
+  Proyecto Node/TypeScript en `whatsapp-agent/`, Dockerfile, CI (lint/test/build, mismo patrón que `order-core`).
+  Hecho cuando: el servicio levanta local, CI en verde.
+
+- [ ] **27. Redis**
+  `docker-compose` para dev, cliente de conexión desde el servicio.
+  Hecho cuando: el servicio se conecta a Redis local y puede encolar/leer un mensaje de prueba.
+
+- [ ] **28. Interfaz `WhatsAppProvider`**
+  Mensaje entrante normalizado (independiente del formato de cada proveedor) + `sendMessage(telefono, texto)`. Selección de adapter activo por variable de entorno.
+  Hecho cuando: la interfaz está definida y el resto del servicio (webhook, worker) programa contra ella, no contra un proveedor concreto.
+
+- [ ] **29. Adapter WAHA**
+  Webhook de recepción + envío, implementando la interfaz de la tarea 28. Se prueba con un número de WhatsApp propio, vía QR.
+  Hecho cuando: un mensaje mandado desde un teléfono real (por WAHA) llega al webhook y queda encolado en Redis; el servicio puede mandar una respuesta de vuelta y llega al teléfono.
+
+- [ ] **30. Adapter Meta Cloud API** 🔒
+  `GET` de verificación (hub.challenge) + `POST` de recepción + envío vía Send Message API, mismo contrato que el adapter WAHA.
+  Hecho cuando: con credenciales reales de Meta, la verificación del webhook responde lo que Meta espera y un mensaje real por Meta llega y se puede responder. Bloqueada hasta tener la cuenta de Meta Business verificada.
+
+- [ ] **31. Worker**
+  Consume la cola, orquesta el resto de los pasos (cliente Order Core, agente, memoria, envío de respuesta) sin saber qué adapter está activo.
+  Hecho cuando: un mensaje encolado (por cualquiera de los dos adapters) dispara el worker y se puede ver el flujo completo corriendo.
+
+- [ ] **32. Cliente HTTP hacia el Order Core**
+  Usa el `BotToken` de la tarea 25.
+  Hecho cuando: el cliente puede traer catálogo/info del tenant y crear/consultar un pedido contra el Order Core real (dev).
+
+- [ ] **33. Agente con Claude (tool use)**
+  Las 4 tools de la spec 4.1: catálogo, crear pedido, consultar estado, FAQ (horarios/ubicación/medios de pago).
+  Hecho cuando: dado un mensaje de texto de prueba (vía WAHA, número propio), el agente elige la tool correcta y arma una respuesta coherente. Necesita la API key de Anthropic del bot -- esta sí es dependencia real, no bloqueada por Meta.
+
+- [ ] **34. Memoria corta por `customer_phone`**
+  Contexto de conversación, ligado al teléfono del cliente.
+  Hecho cuando: dos mensajes seguidos del mismo teléfono comparten contexto (ej. "dame 2" después de "quiero chipa" arma bien el pedido).
+
+- [ ] **35. Fallback genérico**
+  Mensaje genérico al cliente + log estructurado simple cuando el agente no puede resolver algo (sin UI en el panel, eso es Fase 3).
+  Hecho cuando: un mensaje fuera de alcance dispara el fallback y queda registrado en los logs del worker.
+
+### Etapa 11 — Deploy
+
+- [ ] **36. Deploy de `whatsapp-agent`**
+  Containers (agent + worker + redis) + ruta en Traefik para el webhook, mismo runner self-hosted que ya existe para este repo. Arranca con el adapter WAHA activo.
+  Hecho cuando: el webhook es alcanzable por HTTPS en un dominio/subdominio propio, y un pedido real se puede crear de punta a punta hablándole al bot por WhatsApp (número propio, vía WAHA).
+
+- [ ] **37. Migrar a Meta Cloud API en producción** 🔒
+  Cambiar el adapter activo de WAHA a Meta por variable de entorno, sin tocar código.
+  Hecho cuando: un mensaje real de WhatsApp (número de Business verificado) dispara todo el flujo y el cliente recibe una respuesta coherente, incluyendo al menos un pedido creado de punta a punta. Bloqueada hasta tener la cuenta de Meta Business verificada.
 
 ---
 
 ## Cómo seguir
 
-Arrancamos por la tarea 1, una por vez. Después de validar las tareas de la Etapa 2 (4 a 7d) a mano, se puede pedir avanzar con varias tareas seguidas de una.
+Fase 1: arrancamos por la tarea 1, una por vez. Después de validar las tareas de la Etapa 2 (4 a 7d) a mano, se soltaron varias tareas seguidas de una.
+
+Fase 2: mismo criterio -- de a una, empezando por la tarea 24. Casi todo se puede construir y probar en real contra WAHA (número propio) sin esperar nada de Meta -- las únicas tareas realmente bloqueadas (🔒, tareas 30 y 37) son las que dependen de tener la cuenta de Meta Business verificada.

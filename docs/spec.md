@@ -142,6 +142,8 @@ Opciones a evaluar en la spec de implementación:
 
 Para un producto que se va a vender a terceros, conviene planificar directamente sobre la API oficial aunque el arranque sea más lento.
 
+**Decisión de Fase 2**: se arranca el desarrollo con **WAHA** (WhatsApp HTTP API, misma categoría que Evolution/Baileys -- no oficial, login por QR, sin trámites) contra un número de prueba propio, mientras se tramita la verificación de Meta Business en paralelo. El destino de producción sigue siendo Meta Cloud API, sin cambios respecto a lo de arriba -- el bot se diseñó con una interfaz de proveedor (`WhatsAppProvider`) para que migrar de WAHA a Meta sea cambiar una variable de entorno, no reescribir el agente. Ver `docs/plan.md` y `docs/tasks.md` (tareas 28-30, 37).
+
 ---
 
 ## 5. Integración con La Balanza

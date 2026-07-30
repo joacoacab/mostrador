@@ -1,89 +1,47 @@
-# Plan — Fase 1: MVP Order Core standalone
+# Plan — Fase 2: Bot de WhatsApp (texto)
 
-Basado en `docs/spec.md`, secciones 3, 6 y 7. Alcance: modelo de datos, API y panel kanban básico, **sin bot de WhatsApp** (carga manual de pedidos). Sin escribir código todavía — esto es el desglose para acordar antes de pasar a `docs/tasks.md`.
+Basado en `docs/spec.md` secciones 2, 4 y 6-8. Alcance según sección 7: **integración con Meta Cloud API + agente con tools básicas (catálogo, crear pedido, consultar estado)**. Explícitamente fuera de esta fase (son Fase 3): transcripción de audio, y el sistema completo de escalamiento a humano con UI en el panel ("requiere atención"). Sin escribir código todavía — esto es para acordar antes de pasar a `docs/tasks.md`.
 
-## Objetivo de la fase
+## Qué ya existe y qué no
 
-Tener un Order Core funcional y aislado (sin integración con La Balanza ni bot) donde un operador pueda: loguearse, cargar/gestionar catálogo, crear pedidos manualmente, moverlos por la máquina de estados, y verlos en un kanban y en una pantalla de solo lectura tipo tablet. Todo con scoping estricto por `tenant_id`.
+El Order Core (Fase 1) ya expone todo lo que el bot necesita *leer/escribir* en principio: `GET /catalog`, `POST /orders`, `GET /orders/{id}`, `PATCH /orders/{id}/status`. Lo que **no existe todavía** y esta fase tiene que resolver:
 
-## Criterio de éxito de la fase
+1. **Cómo se autentica el bot contra el Order Core.** Hoy hay dos mecanismos: JWT de staff (`TenantAwareJWTAuthentication`, pensado para un humano logueado) y `DeviceTokenAuthentication` (pensado para la pantalla, de solo lectura y solo en `/api/orders/`). Ninguno sirve para "un servicio de confianza que actúa en nombre de un tenant, con permiso de leer catálogo y crear/consultar pedidos". Hace falta un mecanismo nuevo -- mismo tipo de trabajo que fue el pairing de la tarea 21, pero más simple (no hay "pairing", el bot es un servicio, no un dispositivo que un humano empareja).
+2. **De dónde salen horarios / ubicación / medios de pago.** La spec (4.1, punto 3) pide que el bot pueda responder esto, pero no hay ningún modelo en el Order Core que guarde esa info por tenant. Hace falta agregar algo mínimo (unos campos en `Tenant`, o un modelo aparte tipo `TenantInfo`).
+3. **Memoria corta de la conversación por `customer_phone`.** No hay ningún storage para esto todavía.
+4. **El servicio `whatsapp-agent` en sí.** No existe ni el directorio. La spec (sección 8) dice que va en el mismo monorepo que `order-core`, como servicio aparte que habla con el Order Core por HTTP.
 
-- Un tenant no puede ver ni modificar datos de otro tenant (verificado con tests).
-- La máquina de estados de `Order` rechaza transiciones inválidas y genera `OrderEvent` en cada transición válida.
-- El panel kanban y la pantalla tablet reflejan cambios de estado (polling corto, sin WebSocket en esta fase).
-- Todo corre deployado en la infra propia (EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia).
+## Decisiones (confirmadas)
 
-## Orden y por qué
+1. **Proveedor de WhatsApp: híbrido.** Meta Cloud API sigue siendo el destino final (spec 4.3, sin cambios) -- pero mientras se tramita la verificación de Meta Business (puede tardar), se desarrolla y prueba contra **WAHA** (WhatsApp HTTP API, no oficial, login por QR con un número de prueba propio, sin trámites). Para que el cambio de proveedor no implique reescribir el bot, el core (webhook → cola → worker → agente) no habla con "Meta" ni con "WAHA" directamente: habla con una interfaz chica (`WhatsAppProvider`, algo como `sendMessage(telefono, texto)` + un formato normalizado de mensaje entrante), y cada proveedor es un adapter que implementa esa interfaz. Se selecciona por variable de entorno. Esto no es abstracción prematura: ya sabemos que van a existir dos proveedores concretos, no es una hipótesis.
+   - Sigue pendiente, dependencia externa real: API key de Anthropic propia para que el bot llame a Claude en producción (aparte de esta sesión de Claude Code) -- sin esto no hay tools reales que probar, ni con WAHA ni con Meta.
+2. **Lenguaje del servicio `whatsapp-agent`**: **Node/TypeScript**.
+3. **Arquitectura del webhook**: **Redis + worker desde el arranque**, como sugiere la spec -- el webhook encola el mensaje entrante y responde rápido a Meta; un worker aparte lo procesa (llama a Claude, llama al Order Core, manda la respuesta). Implica sumar un container de Redis al server (recursos: a vigilar, el box ya corre ajustado de RAM).
+4. **Fallback cuando el agente no puede resolver algo**: mensaje genérico al cliente ("no tengo esa información, un operador te va a escribir") + queda registrado en algún lado simple (ver desglose, punto 10) para que el operador lo vea. Sin UI en el panel todavía -- eso es Fase 3.
 
-Modelo de datos y API primero, panel visual después (sección 9 de la spec): no tiene sentido construir UI sobre contratos que todavía van a cambiar. Dentro del backend, el orden respeta dependencias reales: no hay `Order` sin `Product`, no hay scoping multi-tenant probado sin que exista `Tenant` primero, no hay auth sin `User`.
+## Desglose de piezas (orden sugerido, no es tasks.md todavía)
 
----
+**Backend (Order Core)**
+1. Modelo + campos para horarios/ubicación/medios de pago por tenant.
+2. Mecanismo de autenticación para el bot (nueva auth class, similar en espíritu a `DeviceTokenAuthentication` pero para un servicio, no un dispositivo pareado por humano).
+3. Endpoint(s) que el bot necesite y que hoy no existan (a confirmar una vez resueltos los puntos de arriba -- probablemente ninguno nuevo además de lo ya construido, salvo el de horarios/ubicación).
 
-## Desglose de tareas (orden de ejecución)
+**Servicio nuevo `whatsapp-agent`**
+4. Setup del servicio (estructura Node/TypeScript, Dockerfile, CI).
+5. Redis: infra local (dev) + producción, cola de mensajes entrantes.
+6. Interfaz `WhatsAppProvider` (mensaje normalizado + `sendMessage`) y selección de adapter por env var.
+7. Adapter WAHA: webhook de recepción + envío -- este es el que se prueba primero, sin esperar a Meta.
+8. Adapter Meta Cloud API: verificación de webhook (`GET`, hub.challenge) + recepción (`POST`) + envío (Send Message API) -- mismo contrato que el adapter WAHA, se prueba cuando estén las credenciales. 🔒
+9. Worker: consume la cola, orquesta el resto (pasos 10-12), sin saber qué adapter está activo.
+10. Cliente HTTP hacia el Order Core (autenticado con el mecanismo del punto 2 del backend).
+11. Agente con Claude (tool use): las 4 tools de la spec 4.1.
+12. Memoria corta por `customer_phone` (¿en Redis también, o storage aparte? -- a definir en la tarea correspondiente).
+13. Fallback genérico cuando el agente no puede resolver algo, con registro simple (logs estructurados alcanza para Fase 2 -- una vista en el panel es Fase 3).
 
-### Etapa 0 — Fundación del repo
-
-1. **Setup del monorepo**: estructura `order-core/backend`, `order-core/frontend`, `.gitignore`, README mínimo.
-   - *Hecho cuando*: estructura de carpetas existe y commiteada, sin código funcional todavía.
-2. **CI básico**: pipeline de GitHub Actions que al menos corra lint + tests en cada push/PR (vacío de contenido real hasta que haya tests que correr, pero el workflow debe existir y pasar en verde).
-   - *Hecho cuando*: workflow corre en un PR de prueba y termina en verde.
-
-### Etapa 1 — Backend: base del proyecto Django
-
-3. **Proyecto Django + apps**: crear proyecto y apps `tenants`, `accounts`, `catalog`, `orders` (sin modelos todavía, solo esqueleto + settings + conexión a PostgreSQL en Docker).
-   - *Hecho cuando*: `manage.py runserver` levanta contra PostgreSQL en Docker sin errores.
-
-### Etapa 2 — Modelo de dominio y multi-tenancy (base crítica, revisar a mano)
-
-4. **Modelo `Tenant`** + migración.
-5. **Modelo `User`** (con `rol` admin/empleado) + migración, relacionado a `Tenant`.
-6. **Mecanismo de scoping por `tenant_id`**: middleware o manager custom que fuerza el filtro de tenant en cada query, antes de agregar el resto de los modelos que dependen de esto.
-   - *Hecho cuando*: existe un test que prueba que un query sin tenant explícito no devuelve datos de otro tenant.
-7. **Modelos `Product`, `Customer`, `Order`, `OrderItem`, `OrderEvent`** (sección 3.1) + migraciones, todos scopeados por el mecanismo de la tarea 6.
-   - *Hecho cuando*: migraciones aplican limpio y cada modelo tiene su `tenant_id` (directo o heredado vía FK) cubierto por el scoping.
-
-### Etapa 3 — Auth
-
-8. **Auth JWT** con rol admin/empleado sobre el modelo `User` de la tarea 5.
-   - *Hecho cuando*: login devuelve token JWT válido, y endpoints protegidos rechazan requests sin token o con rol insuficiente.
-
-### Etapa 4 — API de catálogo y pedidos
-
-9. **API CRUD de `Product`** (`GET/POST/PATCH/DELETE`), scopeada por tenant y protegida por auth.
-10. **API de `Order`**: crear, listar, filtrar por estado/cliente/fecha, `GET /orders/{id}`, `PATCH /orders/{id}/status` con validación de la máquina de estados (sección 3.2) y creación automática de `OrderEvent` en cada transición.
-    - *Hecho cuando*: existen tests que cubren transiciones válidas e inválidas de la máquina de estados, y cada transición válida deja un `OrderEvent` registrado.
-11. **Endpoint `GET /catalog`** (versión standalone, sirve directo desde `Product` — el modo integración con La Balanza es Fase 4).
-
-### Etapa 5 — Tests de base (antes de seguir a frontend)
-
-12. **Tests de máquina de estados y scoping multi-tenant**: consolidar y completar la cobertura de las tareas 6 y 10 (que ya vienen con tests parciales) antes de invertir en frontend, porque son la base de todo lo demás.
-
-### Etapa 6 — Frontend: fundación + flujos manuales
-
-13. **Setup frontend**: proyecto Next.js + TypeScript + Tailwind dentro de `order-core/frontend`, configuración de PWA (`next-pwa`, manifest, service worker) desde el arranque para no migrarlo después.
-14. **Login** (consume la API de la tarea 8).
-15. **CRUD de productos** (consume la API de la tarea 9).
-16. **Alta manual de pedido** (consume la API de la tarea 10).
-
-### Etapa 7 — Frontend: paneles en tiempo real
-
-17. **Polling corto**: mecanismo de refresco periódico en el frontend contra la API de pedidos (sección 6 de la spec: WebSocket queda para más adelante si hace falta, no forma parte de esta fase).
-18. **Panel kanban** (`/panel`, sección 3.4): tablero por estado, filtro por canal/cliente/fecha, disparo de respuesta automática al marcar "sin stock" (placeholder sin bot real todavía, solo el evento/hook), actualización vía el polling de la tarea 17.
-19. **Pantalla tablet/TV** (`/pantalla`, sección 3.5): solo lectura, pairing simple por código/QR, tipografía grande, columnas por estado, auto-ocultado de pedidos entregados después de un tiempo configurable, mismo mecanismo de polling que el panel.
-
-### Etapa 8 — Cierre de fase
-
-20. **Deploy**: EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia, infra propia separada de La Balanza.
-21. **Checkpoint de fase**: resumen de lo implementado vs. lo especificado en `docs/spec.md`, actualizar la spec si algo cambió en el camino.
-
----
-
-## Decisiones abiertas a confirmar antes de pasar a `tasks.md`
-
-- **Intervalo de polling (tarea 17)**: cada cuánto refresca el panel y la pantalla tablet — afecta carga sobre el backend y percepción de "tiempo real".
-- **Pairing de la pantalla tablet (tarea 19)**: ¿código numérico simple o QR con token?
-- **Entorno de PostgreSQL para desarrollo local**: ¿Docker Compose desde la tarea 3, o instancia local directa?
+**Deploy**
+14. Containers (agent + worker + redis) + ruta en Traefik para el webhook (mismo patrón que Fase 1, mismo runner self-hosted -- no hace falta uno nuevo, es el mismo repo). Arranca con el adapter WAHA activo; se cambia a Meta por variable de entorno cuando estén las credenciales, sin redeploy de código.
+15. Tests + verificación end-to-end -- con WAHA primero (no bloqueante), con Meta después (🔒, cuando tengas las credenciales).
 
 ## Siguiente paso
 
-Revisar este desglose, ajustar lo que no cierre, y recién ahí convertirlo en `docs/tasks.md` (checklist ejecutable, una tarea por commit, con criterio de "hecho" — varios ya están esbozados arriba).
+Con las 4 decisiones ya confirmadas, el siguiente paso es convertir este plan en `docs/tasks.md` (checklist ejecutable, una tarea por commit). Lo hago ahora salvo que quieras ajustar algo del desglose primero.
