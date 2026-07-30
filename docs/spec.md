@@ -49,7 +49,7 @@ Dos servicios separados que se hablan por API/webhooks: **order-core** y **whats
 ### 3.1 Modelo de dominio
 
 - **Tenant**: `id`, `nombre`, `slug`, `plan`, `created_at`.
-- **User**: `id`, `tenant_id`, `email`, `password_hash`, `rol` (admin/empleado), `nombre`.
+- **User**: `id`, `tenant_id`, `email`, `password_hash`, `rol` (admin/empleado), `nombre`. Implementado extendiendo `AbstractUser` de Django en vez de un modelo desde cero: en la práctica el modelo real también tiene `username` (login por username, no por email todavía) y el hasheo de password lo resuelve Django por herencia (`password`, no un campo `password_hash` literal) — decisión de implementación de la tarea 5, no un desvío funcional.
 - **Customer**: `id`, `tenant_id`, `telefono` (único por tenant, es el ID de WhatsApp), `nombre`, `created_at`.
 - **Product**: `id`, `tenant_id`, `nombre`, `precio`, `unidad`, `disponible` (bool), `origen` (manual/integración), `external_id` (nullable, para mapear con La Balanza u otra integración).
 - **Order**: `id`, `tenant_id`, `customer_id`, `canal` (whatsapp/manual), `estado`, `notas`, `created_at`, `updated_at`.
@@ -68,6 +68,8 @@ Estados alternativos: cancelado, sin_stock, rechazado
 
 Cada transición dispara un evento (para notificar al cliente por WhatsApp y actualizar el panel en tiempo real).
 
+Implementado en `orders/state_machine.py`. La spec no detalla desde qué estados se puede llegar a los tres alternativos, así que se definió así: `cancelado` es alcanzable desde cualquier estado no terminal (pendiente/confirmado/en_preparación/listo/en_camino); `rechazado` y `sin_stock` solo desde pendiente/confirmado (antes de que el pedido entre en preparación). Pendiente de revisar en Fase 2: hoy `en_camino → cancelado` es una cancelación simple sin motivo obligatorio; si el bot empieza a disparar cancelaciones automáticas, o aparece lógica de reembolso/costo de envío ya gastado, probablemente necesite más que un cambio de estado liso.
+
 ### 3.3 API pública (para el bot y para integraciones)
 
 Endpoints mínimos:
@@ -78,24 +80,26 @@ Endpoints mínimos:
 - `GET /orders?customer_phone=` — historial de un cliente
 - Webhooks salientes: `order.status_changed`, `order.created`, `stock.unavailable`
 
-La API completa (incluida `Customer`, que terminó haciendo falta para el alta manual de pedidos y no estaba en la lista original) queda documentada automáticamente vía `drf-spectacular`: esquema OpenAPI en `/api/schema/`, Swagger UI navegable en `/api/docs/`.
+**Estado real al cierre de Fase 1**: todo lo de arriba está implementado, más filtros extra en `GET /orders` (por `estado`, `canal`, `customer`, `fecha`) y CRUD completo de `Product`/`Customer` (`Customer` terminó haciendo falta para el alta manual de pedidos y no estaba en la lista original). Los **webhooks salientes NO están implementados** — no hay todavía ningún consumidor real (el bot, que los necesitaría, es Fase 2), así que se deferieron en vez de construirlos sin caso de uso. Quedan pendientes para cuando arranque la Fase 2.
+
+La API completa queda documentada automáticamente vía `drf-spectacular`: esquema OpenAPI en `/api/schema/`, Swagger UI navegable en `/api/docs/` (públicos, sin login, para que se puedan explorar/probar).
 
 ### 3.4 Panel interno
 
-- Vista tipo tablero (kanban) por estado de pedido.
+- Vista tipo tablero (kanban) por estado de pedido. Implementado con 6 columnas (el flujo principal: pendiente, confirmado, en_preparación, listo, en_camino, entregado) -- los 3 estados alternativos (cancelado, sin_stock, rechazado) no tienen columna propia, se accede a ellos vía acción puntual (ver siguiente punto) en vez de drag & drop.
 - Filtro por canal, por cliente, por fecha.
-- Marcar "sin stock" dispara automáticamente una respuesta del bot al cliente.
-- Notificaciones en tiempo real (WebSocket o polling corto).
+- Marcar "sin stock" dispara automáticamente una respuesta del bot al cliente. **Implementado como placeholder**: el botón dispara la transición de estado real (`PATCH /orders/{id}/status` a `sin_stock`, con su `OrderEvent`), pero todavía no hay ningún bot que reciba ese evento y le escriba al cliente -- eso depende de la Fase 2.
+- Notificaciones en tiempo real (WebSocket o polling corto) → **polling** (decisión de Fase 1, ver sección 6).
 
 ### 3.5 Pantalla de estado en local (modo "tablet/TV")
 
 Vista adicional, separada del panel de gestión, pensada para mostrarse en una tablet o TV dentro del local (estilo pantalla de pedidos de McDonald's):
 
-- Solo lectura, sin login (o con un pairing simple por código/QR para vincular el dispositivo al tenant).
-- Tipografía grande, columnas por estado (en preparación / listo / en camino), pensada para verse a distancia.
-- Se actualiza sola en tiempo real (mismo canal WebSocket que el panel interno, distinta vista).
-- Filtra automáticamente pedidos ya entregados/retirados (los saca de pantalla después de un tiempo configurable).
-- Técnicamente es solo otra ruta del frontend del Order Core consumiendo la misma API — no requiere backend aparte.
+- Solo lectura, sin login (con pairing por código numérico de 6 dígitos para vincular el dispositivo al tenant -- se implementó solo la variante código, sin QR).
+- Tipografía grande, columnas por estado, pensada para verse a distancia. Implementado con **4 columnas**, no 3: en preparación / listo / en camino / **entregado** -- hace falta una columna "entregado" para que el punto siguiente (auto-ocultado) tenga algo que ocultar; sin ella el pedido desaparecería de golpe al pasar a entregado en vez de mostrarse un rato y disolverse solo.
+- Se actualiza sola en tiempo real (mismo canal WebSocket que el panel interno, distinta vista) → **polling** cada 5s, mismo mecanismo que el panel (ver sección 6).
+- Filtra automáticamente pedidos ya entregados/retirados (los saca de pantalla después de un tiempo configurable). Implementado: 60 segundos, como constante en el código -- "configurable" hoy significa que existe una única constante fácil de cambiar, no un control en la UI para ajustarlo en runtime.
+- ~~Técnicamente es solo otra ruta del frontend del Order Core consumiendo la misma API — no requiere backend aparte.~~ **Esto no se cumplió**: el pairing sin login sí necesitó backend nuevo -- un modelo `PairingCode` (código + token de dispositivo), un endpoint para generarlo (`POST /api/pairing/generate/`, desde el panel) y uno para canjearlo (`POST /api/pairing/claim/`, sin auth), y una clase de autenticación nueva (`DeviceTokenAuthentication`, header `Authorization: DeviceToken <token>`, agregada solo en el endpoint de pedidos -- de solo lectura ahí, no en el resto de la API). Fue el bloque de trabajo más grande de la Etapa 7.
 
 ---
 
@@ -103,10 +107,11 @@ Vista adicional, separada del panel de gestión, pensada para mostrarse en una t
 
 El frontend de Mostrador (panel interno + pantalla tablet, sección 3.5) se construye como una **única PWA** en Next.js + TypeScript, en vez de apps nativas separadas:
 
-- Mismo código Next.js, distintas rutas: `/panel` (gestión, requiere login) y `/pantalla` (solo lectura, pairing por QR/código).
+- Mismo código Next.js, distintas rutas: `/panel` (gestión, requiere login) y `/pantalla` (solo lectura, pairing por código).
 - Instalable desde el navegador (manifest + service worker), sin pasar por tiendas de apps — clave si el producto se instala en el dispositivo de un tercero.
-- Service worker cachea el último estado conocido de los pedidos, para que la pantalla del local no se rompa ante un corte breve de wifi (a implementar en las tareas 19-21, cuando exista contenido real que cachear).
-- No se usa `next-pwa`: al implementar la tarea 15 (julio 2026) la versión instalada de Next.js (16) ya trae soporte nativo de manifest (`app/manifest.ts`) y la guía oficial de PWA de esa versión recomienda **Serwist** como sucesor de `next-pwa` para el service worker — con la salvedad de que Serwist necesita configuración de webpack, mientras que Next 16 usa Turbopack por default. Se optó por un `public/sw.js` mínimo escrito a mano (sin estrategia de cache, solo lo necesario para que el navegador ofrezca instalar la PWA) hasta que la tarea 19-21 necesite cachear datos reales.
+- Service worker cachea el último estado conocido de los pedidos, para que la pantalla del local no se rompa ante un corte breve de wifi. **No implementado al cierre de Fase 1**: las tareas 19-21 se cerraron con el service worker mínimo de la tarea 15 (sin estrategia de cache), no se volvió a esto. Queda como deuda técnica conocida a retomar si el corte de wifi resulta un problema real en el uso del local.
+- Deploy (tarea 22): se exporta como sitio estático (`output: "export"`), sin proceso Node corriendo en producción -- todas las páginas son client components que hacen fetch a la API por su cuenta, sin nada server-side (route handlers, server actions, cookies), así que no hace falta un runtime de Node para servirlo. Se sirve con nginx, igual que cualquier SPA.
+- No se usa `next-pwa`: al implementar la tarea 15 (julio 2026) la versión instalada de Next.js (16) ya trae soporte nativo de manifest (`app/manifest.ts`) y la guía oficial de PWA de esa versión recomienda **Serwist** como sucesor de `next-pwa` para el service worker — con la salvedad de que Serwist necesita configuración de webpack, mientras que Next 16 usa Turbopack por default. Se optó por un `public/sw.js` mínimo escrito a mano (sin estrategia de cache, solo lo necesario para que el navegador ofrezca instalar la PWA) — ver el punto de arriba sobre por qué esto se quedó así al cierre de la Fase 1.
 - Limitación a tener en cuenta: soporte de PWA en iOS es más acotado que en Android/Chrome (push notifications, background sync). No es un problema para la pantalla fija del local (probablemente tablet Android), pero sí a evaluar si en el futuro se piensa un uso más "app" para el dueño desde su celular.
 
 ### 4.1 Flujo de mensajes
@@ -151,7 +156,7 @@ Para un producto que se va a vender a terceros, conviene planificar directamente
 
 Reutilizar lo ya probado en La Balanza para bajar riesgo, modernizando el frontend:
 - **Order Core (backend)**: Django + DRF + PostgreSQL (multi-tenant por `tenant_id`). Se mantiene sobre Django porque ya está resuelto el patrón multi-tenant en otros proyectos y da admin gratis — cambiarlo ahora sería riesgo especulativo sin necesidad real.
-- **Frontend**: Next.js + TypeScript + Tailwind, en vez de Vite+React plano — tipado real en los contratos con la API y mejor soporte de PWA (`next-pwa`).
+- **Frontend**: Next.js + TypeScript + Tailwind, en vez de Vite+React plano — tipado real en los contratos con la API. PWA con soporte nativo de Next.js (sin `next-pwa`, ver sección 3.6 para el detalle de por qué).
 - **WhatsApp Agent**: servicio aparte (Node/TypeScript o Python, a definir en Fase 2), Claude API con tool use, cola de mensajes (Redis/simple queue). Se comunica con el Order Core por HTTP, no comparte código — por eso el lenguaje del Order Core no condiciona al del bot.
 - **Infra**: AWS, mismo esquema que La Balanza — EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia. RDS se evalúa más adelante, cuando haya carga real o un cliente pagando que justifique el costo de un servicio administrado con backups/Multi-AZ. La instancia EC2 es la misma que ya usa La Balanza (dev server compartido) — "infra separada" (sección 8) se resolvió como aislamiento por contenedores + ruteo por dominio en Traefik, no como una instancia física aparte; ver sección 7, tarea 22.
 
@@ -159,21 +164,17 @@ Reutilizar lo ya probado en La Balanza para bajar riesgo, modernizando el fronte
 
 ## 7. Roadmap por fases
 
-**Fase 1 — MVP Order Core standalone**
-- Modelo de datos, API, panel kanban básico, sin bot todavía (carga manual de pedidos).
+**Fase 1 — MVP Order Core standalone — ✅ completa**
+- Modelo de datos, API, panel kanban, pantalla tablet/TV, deploy en producción. Sin bot todavía (carga manual de pedidos), tal como se planeó.
 
-Desglose de tareas:
-1. Setup del monorepo (`order-core/backend`, `order-core/frontend`), CI básico.
-2. Proyecto Django + apps: `tenants`, `accounts`, `catalog`, `orders`.
-3. Modelos + migraciones (sección 3.1) con scoping por `tenant_id` en cada query (middleware o manager custom).
-4. Auth (JWT) con rol admin/empleado.
-5. API CRUD de `Product`.
-6. API de `Order`: crear, listar, filtrar por estado/cliente/fecha, transición de estado con validación de máquina de estados (sección 3.2) y creación automática de `OrderEvent`.
-7. Frontend: setup Next.js + TypeScript + Tailwind (`order-core/frontend`), configuración de PWA (`next-pwa`) desde el arranque, login, CRUD de productos, alta manual de pedido.
-8. Frontend: panel kanban (sección 3.4) con actualización en tiempo real (polling corto — WebSocket queda para más adelante si hace falta).
-9. Frontend: pantalla tablet/TV de solo lectura (sección 3.5).
-10. Tests de la máquina de estados y del scoping multi-tenant (que un tenant no pueda ver datos de otro).
-11. Deploy: EC2 + Traefik + GitHub Actions. Misma instancia EC2 que La Balanza (dev server compartido), aislado por contenedores Docker propios (`docker-compose.prod.yml`, red `internal` propia) + ruteo por dominio en Traefik (`api.mostrador.siracnetwork.com`, `mostrador.siracnetwork.com`) — no una instancia física aparte, ver sección 6. PostgreSQL en Docker en la misma instancia (RDS se evalúa más adelante). Runner de GitHub Actions self-hosted registrado específicamente para este repo (no comparte runner con La Balanza).
+El desglose granular de tareas (23 en total, una por commit) y su estado vive en `docs/tasks.md` — no se duplica acá para no mantener dos listas desincronizadas. Resumen de las desviaciones/decisiones más relevantes tomadas durante la ejecución (detalle en las secciones correspondientes de este documento):
+- Next.js en vez de Vite+React, sin `next-pwa` (no aplica a la versión de Next usada) — sección 3.6.
+- Polling corto en vez de WebSocket — sección 6.
+- `Customer` API no estaba en la lista original de endpoints y terminó siendo necesaria — sección 3.3.
+- Webhooks salientes no implementados (sin consumidor real hasta que exista el bot) — sección 3.3.
+- Pairing de la pantalla sí necesitó backend nuevo, pese a que la spec asumía que no — sección 3.5.
+- Service worker con cache real de pedidos (para sobrevivir cortes de wifi) no se implementó — sección 3.6.
+- Infra de deploy compartida con La Balanza (misma instancia EC2, aislado por contenedores) en vez de una instancia física separada — sección 6.
 
 **Fase 2 — Bot de WhatsApp (texto)**
 - Integración con Meta Cloud API, agente con tools básicas (catálogo + crear pedido + consultar estado).

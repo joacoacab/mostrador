@@ -21,4 +21,4 @@ Gestor de pedidos multi-rubro con panel interno, pantalla tipo tablet/TV para el
 - Un servicio de dominio agnóstico de rubro: nunca hardcodear lógica específica de un negocio (carnicería, chipacitos, etc.) en `order-core`. Cualquier especificidad de rubro va del lado de una integración externa.
 
 ## Estado actual
-Fase 1 (MVP Order Core standalone) — en curso, ver `docs/tasks.md` para el detalle de qué está hecho.
+Fase 1 (MVP Order Core standalone) — completa y en producción (`https://mostrador.siracnetwork.com`). Ver `docs/tasks.md` para el detalle de qué se hizo y `docs/spec.md` sección 7 para el resumen de desviaciones vs. lo planeado. Fase 2 (bot de WhatsApp) sin arrancar todavía — no avanzar sin aprobación explícita.

@@ -154,9 +154,28 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
   Dominios: `mostrador.siracnetwork.com` (frontend) / `api.mostrador.siracnetwork.com` (backend), ambos con certificado real de Let's Encrypt. Verificado con Playwright contra las URLs públicas reales: login, kanban, alta de producto contra la API en producción -- sin errores de consola.
 
-- [ ] **23. Checkpoint de fase**
+- [x] **23. Checkpoint de fase**
   Resumen de lo implementado vs. lo especificado en `docs/spec.md`; actualizar la spec si algo cambió en el camino.
   Hecho cuando: `docs/spec.md` refleja el estado real del sistema, y hay un resumen del checkpoint (en el PR o en un doc aparte) para aprobar el paso a Fase 2.
+
+  ### Resumen del checkpoint
+
+  **Implementado, coincide con la spec**: modelo de dominio completo (`Tenant`, `User`, `Customer`, `Product`, `Order`, `OrderItem`, `OrderEvent`), scoping multi-tenant por `tenant_id`, máquina de estados con auditoría (`OrderEvent`), API de catálogo/pedidos/productos, auth JWT con roles, panel kanban con filtros y polling, alta manual de pedido, pantalla tablet/TV con pairing y auto-ocultado, deploy en producción con HTTPS real y CI/CD. 75 tests de backend + verificación end-to-end con Playwright en cada tarea (dev y, para la 22, contra producción real).
+
+  **Implementado, no estaba en la spec original** (agregado porque hizo falta, no por scope creep):
+  - API de `Customer` completa (list + create) -- el alta manual de pedidos no funciona sin poder buscar/crear clientes.
+  - CORS en el backend -- ninguna tarea anterior a la 16 había probado la API desde un browser real.
+  - Documentación de API con drf-spectacular (`/api/docs/`, `/api/schema/`) -- tarea 18b, agregada a pedido explícito entre la 18 y la 19.
+  - Mecanismo de pairing por código + `DeviceTokenAuthentication` -- la spec asumía que la pantalla no necesitaba backend nuevo; en la práctica fue el bloque de trabajo más grande de la Etapa 7.
+
+  **En la spec, no implementado** (deferido a Fase 2 o dejado como deuda técnica conocida, no silenciado):
+  - Webhooks salientes (`order.status_changed`, `order.created`, `stock.unavailable`) -- sin consumidor real hasta que exista el bot.
+  - Service worker con cache real de pedidos para sobrevivir cortes de wifi en la pantalla del local -- quedó el service worker mínimo de la tarea 15, sin estrategia de cache.
+  - Notificación real al cliente al marcar "sin stock" -- el botón dispara la transición de estado real, pero no hay bot que le escriba al cliente todavía.
+
+  **Decisiones de infraestructura que se desviaron de lo planeado**: Next.js reemplazó a Vite+React (versión de Next mucho más nueva de lo esperado, sin `next-pwa` disponible), polling reemplazó a WebSocket, y el deploy terminó compartiendo la instancia EC2 con La Balanza (aislado por contenedores) en vez de una instancia separada. Las tres están documentadas en el lugar correspondiente de `docs/spec.md` (secciones 3.5, 3.6, 6, 7) en el momento en que se tomó cada decisión, no reconstruidas después.
+
+  **Aprobado por el usuario para pasar a Fase 2**: pendiente -- este checkpoint queda para que lo revise antes de arrancar.
 
 ---
 
