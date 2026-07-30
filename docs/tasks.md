@@ -148,11 +148,11 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 8 — Cierre de fase
 
-- [ ] **22. Deploy**
+- [x] **22. Deploy**
   EC2 + Traefik + GitHub Actions, PostgreSQL en Docker en la misma instancia. Misma instancia EC2 que La Balanza (dev server compartido), aislado por contenedores + ruteo por dominio en Traefik -- ver `docs/spec.md` sección 6/7.
   Hecho cuando: la app es accesible por HTTPS en un dominio/subdominio propio, y un push a `main` dispara deploy automático vía Actions.
 
-  Dominios: `mostrador.siracnetwork.com` (frontend) / `api.mostrador.siracnetwork.com` (backend).
+  Dominios: `mostrador.siracnetwork.com` (frontend) / `api.mostrador.siracnetwork.com` (backend), ambos con certificado real de Let's Encrypt. Verificado con Playwright contra las URLs públicas reales: login, kanban, alta de producto contra la API en producción -- sin errores de consola.
 
 - [ ] **23. Checkpoint de fase**
   Resumen de lo implementado vs. lo especificado en `docs/spec.md`; actualizar la spec si algo cambió en el camino.
