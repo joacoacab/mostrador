@@ -8,6 +8,12 @@ catálogo/info del tenant y crear/consultar pedidos.
 Node/TypeScript + Express, sin framework de más -- el servicio es chico
 (webhook + worker).
 
+`src/providers/types.ts` define la interfaz `WhatsAppProvider` (mensaje
+entrante normalizado + `sendMessage`) -- el resto del servicio programa
+contra esa interfaz, no contra WAHA o Meta directamente. El adapter activo
+se elige por la variable de entorno `WHATSAPP_PROVIDER` (`src/providers/registry.ts`).
+Los adapters concretos todavía no existen (tareas 29 y 30).
+
 ## Desarrollo local
 
 ```bash

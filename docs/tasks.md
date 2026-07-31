@@ -211,9 +211,11 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
   Cliente oficial `redis` (node-redis v5), conexión lazy vía `getRedisClient()` (se conecta una sola vez, cacheada). `src/queue.ts`: `enqueue`/`dequeue` genéricos sobre una lista de Redis (`LPUSH`/`BLPOP`, JSON como formato de mensaje) -- todavía no es la cola específica de mensajes de WhatsApp, eso llega con la interfaz de la tarea 28. Test de integración contra Redis real (no mockeado), corre tanto local (`docker compose up -d`) como en CI (nuevo servicio `redis` en el job `whatsapp-agent`).
 
-- [ ] **28. Interfaz `WhatsAppProvider`**
+- [x] **28. Interfaz `WhatsAppProvider`**
   Mensaje entrante normalizado (independiente del formato de cada proveedor) + `sendMessage(telefono, texto)`. Selección de adapter activo por variable de entorno.
   Hecho cuando: la interfaz está definida y el resto del servicio (webhook, worker) programa contra ella, no contra un proveedor concreto.
+
+  `src/providers/types.ts`: `IncomingMessage` (forma común) + `WhatsAppProvider` (`sendMessage`, `parseWebhookPayload` -- traduce el body crudo del webhook de cada proveedor a `IncomingMessage[]` --, y `verifyWebhook` opcional para la verificación por `GET`/`hub.challenge` que solo pide Meta). `src/providers/select.ts`: `selectProvider(nombre, registry)` puro, testeado con un registry falso -- no depende de que WAHA/Meta existan todavía. `src/providers/registry.ts`: `getActiveProvider()` real, lee `WHATSAPP_PROVIDER` del entorno contra un registry hoy vacío (se completa en las tareas 29 y 30). Nada usa `getActiveProvider()` todavía -- eso llega con el webhook de la tarea 29.
 
 - [ ] **29. Adapter WAHA**
   Webhook de recepción + envío, implementando la interfaz de la tarea 28. Se prueba con un número de WhatsApp propio, vía QR.
