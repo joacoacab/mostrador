@@ -1,6 +1,13 @@
 from rest_framework import serializers
 
-from .models import PairingCode
+from .models import PairingCode, Tenant
+
+
+class TenantInfoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tenant
+        fields = ["nombre", "horarios", "ubicacion", "medios_pago"]
+        read_only_fields = fields
 
 
 class PairingCodeSerializer(serializers.ModelSerializer):

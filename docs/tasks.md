@@ -189,7 +189,7 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
 ### Etapa 9 — Order Core: lo que el bot necesita
 
-- [ ] **24. Info del tenant (horarios/ubicación/medios de pago)**
+- [x] **24. Info del tenant (horarios/ubicación/medios de pago)**
   Campos nuevos en `Tenant` (u modelo aparte si crece) + admin para cargarlos + endpoint de lectura.
   Hecho cuando: existe el campo/modelo, se puede cargar desde el admin, y hay un endpoint que lo devuelve.
 

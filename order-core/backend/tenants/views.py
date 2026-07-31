@@ -10,7 +10,21 @@ from .serializers import (
     PairingClaimResultSerializer,
     PairingClaimSerializer,
     PairingCodeSerializer,
+    TenantInfoSerializer,
 )
+
+
+class TenantInfoView(APIView):
+    """Horarios/ubicación/medios de pago del tenant (tarea 24) --
+    fuente de la tool de FAQ del bot (spec 4.1). Por ahora solo la
+    puede pedir un staff logueado (auth default); la tarea 25 le
+    suma la auth de bot."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses=TenantInfoSerializer)
+    def get(self, request):
+        return Response(TenantInfoSerializer(request.user.tenant).data)
 
 
 class PairingGenerateView(APIView):

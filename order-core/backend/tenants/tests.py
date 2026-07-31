@@ -11,6 +11,45 @@ from orders.models import Customer, Order
 from .models import PairingCode, Tenant
 
 
+class TenantInfoTests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(
+            nombre="Tenant A", slug="tenant-a-info", plan="basico",
+            horarios="Lunes a viernes 9 a 18", ubicacion="Av. Siempre Viva 742",
+            medios_pago="Efectivo, transferencia",
+        )
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-info", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-info", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.client = APIClient()
+
+    def test_rechaza_sin_autenticacion(self):
+        response = self.client.get("/api/tenant-info/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_devuelve_la_info_del_tenant_propio(self):
+        authenticate_as(self.client, self.user_a)
+        response = self.client.get("/api/tenant-info/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["nombre"], "Tenant A")
+        self.assertEqual(response.data["horarios"], "Lunes a viernes 9 a 18")
+        self.assertEqual(response.data["ubicacion"], "Av. Siempre Viva 742")
+        self.assertEqual(response.data["medios_pago"], "Efectivo, transferencia")
+
+    def test_campos_vacios_por_default(self):
+        user_b = User.objects.create_user(
+            username="user-b-info", password="testpass123", tenant=self.tenant_b,
+            rol=User.ROL_ADMIN, nombre="User B",
+        )
+        authenticate_as(self.client, user_b)
+        response = self.client.get("/api/tenant-info/")
+        self.assertEqual(response.data["horarios"], "")
+        self.assertEqual(response.data["ubicacion"], "")
+        self.assertEqual(response.data["medios_pago"], "")
+
+
 class PairingGenerateTests(TestCase):
     def setUp(self):
         self.tenant = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-pairing-gen", plan="basico")

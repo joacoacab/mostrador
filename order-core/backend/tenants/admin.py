@@ -7,6 +7,7 @@ from .models import PairingCode, Tenant
 class TenantAdmin(admin.ModelAdmin):
     list_display = ("nombre", "slug", "plan", "created_at")
     prepopulated_fields = {"slug": ("nombre",)}
+    fields = ("nombre", "slug", "plan", "horarios", "ubicacion", "medios_pago")
 
 
 @admin.register(PairingCode)

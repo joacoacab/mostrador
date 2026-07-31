@@ -12,6 +12,16 @@ class Tenant(models.Model):
     plan = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    # FAQ del bot de WhatsApp (spec 4.1, tool "responder preguntas
+    # frecuentes"; tarea 24). Campos de texto libre, no estructurados
+    # -- no hay ningún consumidor que necesite parsearlos todavía, y
+    # cada rubro los va a redactar distinto (agnóstico de rubro, ver
+    # CLAUDE.md). Todos opcionales: un tenant recién creado no tiene
+    # por qué haberlos cargado.
+    horarios = models.TextField(blank=True, default="")
+    ubicacion = models.TextField(blank=True, default="")
+    medios_pago = models.TextField(blank=True, default="")
+
     def __str__(self):
         return self.nombre
 
