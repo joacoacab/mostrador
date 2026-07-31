@@ -1,6 +1,6 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from .authentication import AnonymousDeviceUser
+from .authentication import AnonymousBotUser, AnonymousDeviceUser
 
 
 class DenyDeviceWrites(BasePermission):
@@ -15,3 +15,18 @@ class DenyDeviceWrites(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return not isinstance(request.user, AnonymousDeviceUser)
+
+
+class DenyBotStatusChanges(BasePermission):
+    """El bot (tarea 25) puede leer catálogo/pedidos y crear pedidos,
+    pero cambiarles el estado no está entre sus tools (spec 4.1) --
+    eso lo hace un humano desde el panel. Chequea por `action`, no por
+    método: a diferencia de la pantalla, el bot SÍ puede hacer POST
+    (crear pedido), así que un chequeo genérico de "solo lectura" no
+    sirve acá.
+    """
+
+    def has_permission(self, request, view):
+        if getattr(view, "action", None) != "status_transition":
+            return True
+        return not isinstance(request.user, AnonymousBotUser)

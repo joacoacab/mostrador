@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.authentication import TenantAwareJWTAuthentication
-from tenants.authentication import DeviceTokenAuthentication
-from tenants.permissions import DenyDeviceWrites
+from tenants.authentication import BotTokenAuthentication, DeviceTokenAuthentication
+from tenants.permissions import DenyBotStatusChanges, DenyDeviceWrites
 
 from .models import Customer, Order
 from .serializers import (
@@ -24,6 +24,11 @@ class CustomerViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.G
     # desde acá (no lo pide ninguna tarea). "Elegir cliente" en el
     # alta de pedido es: buscar por teléfono (?telefono=) y, si no
     # existe, crearlo con este mismo endpoint.
+    #
+    # BotTokenAuthentication acá también (tarea 25): el bot no puede
+    # crear un pedido sin poder resolver el cliente por teléfono
+    # primero -- mismo motivo por el que el panel la necesita.
+    authentication_classes = [TenantAwareJWTAuthentication, BotTokenAuthentication]
     serializer_class = CustomerSerializer
 
     def get_queryset(self):
@@ -51,11 +56,14 @@ class OrderViewSet(
     # tener su propio endpoint validado contra la máquina de estados
     # (tarea 12), no un PATCH libre.
 
-    # DeviceTokenAuthentication solo acá (no global, ver settings.py):
-    # es el único endpoint que la pantalla pareada (tarea 21)
-    # necesita, y DenyDeviceWrites la deja en solo lectura.
-    authentication_classes = [TenantAwareJWTAuthentication, DeviceTokenAuthentication]
-    permission_classes = [IsAuthenticated, DenyDeviceWrites]
+    # DeviceTokenAuthentication/BotTokenAuthentication solo acá (no
+    # global, ver settings.py): es el único endpoint que la pantalla
+    # pareada (tarea 21) y el bot (tarea 25) necesitan.
+    # DenyDeviceWrites deja a la pantalla en solo lectura;
+    # DenyBotStatusChanges deja al bot crear/leer pero no cambiar
+    # estados (esa tool no está en la spec 4.1).
+    authentication_classes = [TenantAwareJWTAuthentication, DeviceTokenAuthentication, BotTokenAuthentication]
+    permission_classes = [IsAuthenticated, DenyDeviceWrites, DenyBotStatusChanges]
 
     def get_serializer_class(self):
         if self.action == "create":

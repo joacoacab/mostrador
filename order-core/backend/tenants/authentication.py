@@ -2,7 +2,7 @@ from rest_framework import authentication, exceptions
 
 from tenancy.context import set_current_tenant_id
 
-from .models import PairingCode
+from .models import BotToken, PairingCode
 
 
 class AnonymousDeviceUser:
@@ -48,3 +48,43 @@ class DeviceTokenAuthentication(authentication.BaseAuthentication):
 
         set_current_tenant_id(pairing.tenant_id)
         return (AnonymousDeviceUser(pairing.tenant_id), None)
+
+
+class AnonymousBotUser:
+    """Stand-in de request.user para el whatsapp-agent (tarea 25).
+
+    A diferencia de AnonymousDeviceUser, expone `.tenant` (el objeto,
+    no solo el id): el bot necesita crear pedidos
+    (OrderViewSet.perform_create hace request.user.tenant), la
+    pantalla solo lee.
+    """
+
+    is_authenticated = True
+
+    def __init__(self, tenant):
+        self.id = None
+        self.tenant = tenant
+        self.tenant_id = tenant.id
+
+
+class BotTokenAuthentication(authentication.BaseAuthentication):
+    """Header `Authorization: BotToken <token>`. Mismo motivo que
+    DeviceTokenAuthentication para no usar el esquema "Bearer"."""
+
+    keyword = "BotToken"
+
+    def authenticate(self, request):
+        header = authentication.get_authorization_header(request).split()
+        if not header or header[0].decode().lower() != self.keyword.lower():
+            return None
+        if len(header) != 2:
+            raise exceptions.AuthenticationFailed("Header BotToken inválido.")
+
+        token = header[1].decode()
+        try:
+            bot_token = BotToken.objects.select_related("tenant").get(token=token, active=True)
+        except BotToken.DoesNotExist as exc:
+            raise exceptions.AuthenticationFailed("Token de bot inválido.") from exc
+
+        set_current_tenant_id(bot_token.tenant_id)
+        return (AnonymousBotUser(bot_token.tenant), None)

@@ -193,7 +193,7 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
   Campos nuevos en `Tenant` (u modelo aparte si crece) + admin para cargarlos + endpoint de lectura.
   Hecho cuando: existe el campo/modelo, se puede cargar desde el admin, y hay un endpoint que lo devuelve.
 
-- [ ] **25. Autenticación de servicio para el bot**
+- [x] **25. Autenticación de servicio para el bot**
   Modelo `BotToken` (tenant + token, sin flujo de pairing -- se genera directo, a diferencia de `PairingCode`) + `BotTokenAuthentication`, agregada puntualmente donde el bot necesita pegarle (catálogo, pedidos, info del tenant) -- mismo criterio que la tarea 21 con `DeviceTokenAuthentication`, no global.
   Hecho cuando: un token de bot puede leer catálogo/info y crear/consultar pedidos de su tenant, y no puede nada fuera de eso (tests de permisos, igual que la tarea 21).
 

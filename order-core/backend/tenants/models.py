@@ -64,3 +64,28 @@ class PairingCode(models.Model):
 
     def __str__(self):
         return f"{self.tenant} ({self.code})"
+
+
+def _generate_bot_token():
+    return secrets.token_urlsafe(32)
+
+
+class BotToken(models.Model):
+    """Credencial del `whatsapp-agent` para hablarle al Order Core en
+    nombre de un tenant (tarea 25, Fase 2).
+
+    A diferencia de `PairingCode`, no hay flujo de "pairing": se
+    genera directo (por ahora, a mano desde el admin) y se configura
+    como variable de entorno del servicio del bot -- el bot es un
+    servicio de confianza, no un dispositivo que un humano empareja.
+    `active` permite revocar sin borrar (mantiene el registro de que
+    existió).
+    """
+
+    tenant = models.ForeignKey("tenants.Tenant", on_delete=models.CASCADE, related_name="bot_tokens")
+    token = models.CharField(max_length=64, unique=True, default=_generate_bot_token)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tenant} (bot)"

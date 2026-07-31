@@ -5,6 +5,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.authentication import TenantAwareJWTAuthentication
+
+from .authentication import BotTokenAuthentication
 from .models import PairingCode
 from .serializers import (
     PairingClaimResultSerializer,
@@ -16,10 +19,9 @@ from .serializers import (
 
 class TenantInfoView(APIView):
     """Horarios/ubicación/medios de pago del tenant (tarea 24) --
-    fuente de la tool de FAQ del bot (spec 4.1). Por ahora solo la
-    puede pedir un staff logueado (auth default); la tarea 25 le
-    suma la auth de bot."""
+    fuente de la tool de FAQ del bot (spec 4.1)."""
 
+    authentication_classes = [TenantAwareJWTAuthentication, BotTokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     @extend_schema(responses=TenantInfoSerializer)

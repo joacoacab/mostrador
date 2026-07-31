@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import PairingCode, Tenant
+from .models import BotToken, PairingCode, Tenant
 
 
 @admin.register(Tenant)
@@ -15,3 +15,10 @@ class PairingCodeAdmin(admin.ModelAdmin):
     list_display = ("tenant", "code", "created_at", "expires_at", "claimed_at")
     list_filter = ("tenant",)
     readonly_fields = ("device_token",)
+
+
+@admin.register(BotToken)
+class BotTokenAdmin(admin.ModelAdmin):
+    list_display = ("tenant", "active", "created_at")
+    list_filter = ("tenant", "active")
+    readonly_fields = ("token",)

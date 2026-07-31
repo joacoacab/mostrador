@@ -1,5 +1,8 @@
 from rest_framework import generics, viewsets
 
+from accounts.authentication import TenantAwareJWTAuthentication
+from tenants.authentication import BotTokenAuthentication
+
 from .models import Product
 from .serializers import ProductSerializer
 
@@ -28,6 +31,9 @@ class CatalogView(generics.ListAPIView):
     Fase 4, todavía no existe acá.
     """
 
+    # BotTokenAuthentication acá (tarea 25): "consultar catálogo" es
+    # una de las 4 tools del bot (spec 4.1).
+    authentication_classes = [TenantAwareJWTAuthentication, BotTokenAuthentication]
     serializer_class = ProductSerializer
 
     def get_queryset(self):

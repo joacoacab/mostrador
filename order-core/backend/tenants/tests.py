@@ -6,9 +6,10 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from accounts.testing import authenticate_as
+from catalog.models import Product
 from orders.models import Customer, Order
 
-from .models import PairingCode, Tenant
+from .models import BotToken, PairingCode, Tenant
 
 
 class TenantInfoTests(TestCase):
@@ -160,5 +161,110 @@ class DeviceTokenAuthenticationTests(TestCase):
         # DeviceTokenAuthentication se agregó solo en OrderViewSet a
         # propósito -- ver la nota en config/settings.py. Un device
         # token no debería servir en /api/products/, por ejemplo.
+        response = self.client.get("/api/products/")
+        self.assertEqual(response.status_code, 401)
+
+
+class BotTokenAuthenticationTests(TestCase):
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(
+            nombre="Tenant A", slug="tenant-a-bot", plan="basico",
+            horarios="9 a 18", ubicacion="Acá cerca", medios_pago="Efectivo",
+        )
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-bot", plan="basico")
+        self.bot_token = BotToken.objects.create(tenant=self.tenant_a)
+        self.product_a = Product.all_objects.create(
+            tenant=self.tenant_a, nombre="Chipa", precio="2000.00", unidad="docena", disponible=True
+        )
+        self.customer_a = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.order_a = Order.all_objects.create(
+            tenant=self.tenant_a, customer=self.customer_a, canal=Order.CANAL_WHATSAPP
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.order_b = Order.all_objects.create(
+            tenant=self.tenant_b, customer=self.customer_b, canal=Order.CANAL_WHATSAPP
+        )
+        self.client = APIClient()
+        self.client.credentials(HTTP_AUTHORIZATION=f"BotToken {self.bot_token.token}")
+
+    def test_token_invalido_da_401(self):
+        client = APIClient()
+        client.credentials(HTTP_AUTHORIZATION="BotToken token-que-no-existe")
+        response = client.get("/api/orders/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_token_inactivo_no_autentica(self):
+        self.bot_token.active = False
+        self.bot_token.save(update_fields=["active"])
+        response = self.client.get("/api/orders/")
+        self.assertEqual(response.status_code, 401)
+
+    def test_lee_catalogo(self):
+        response = self.client.get("/api/catalog/")
+        self.assertEqual(response.status_code, 200)
+        nombres = {p["nombre"] for p in response.data}
+        self.assertEqual(nombres, {"Chipa"})
+
+    def test_lee_info_del_tenant(self):
+        response = self.client.get("/api/tenant-info/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["horarios"], "9 a 18")
+
+    def test_busca_y_crea_clientes(self):
+        response = self.client.get("/api/customers/", {"telefono": self.customer_a.telefono})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
+        response = self.client.post("/api/customers/", {"telefono": "+5493333333", "nombre": "Nuevo"})
+        self.assertEqual(response.status_code, 201)
+        created = Customer.all_objects.get(id=response.data["id"])
+        self.assertEqual(created.tenant_id, self.tenant_a.id)
+
+    def test_lista_solo_pedidos_del_tenant_propio(self):
+        response = self.client.get("/api/orders/")
+        self.assertEqual(response.status_code, 200)
+        ids = {o["id"] for o in response.data}
+        self.assertEqual(ids, {self.order_a.id})
+
+    def test_puede_crear_pedidos(self):
+        response = self.client.post(
+            "/api/orders/",
+            {
+                "customer": self.customer_a.id,
+                "canal": Order.CANAL_WHATSAPP,
+                "items": [{"product": self.product_a.id, "cantidad": "1"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        order = Order.all_objects.get(id=response.data["id"])
+        self.assertEqual(order.tenant_id, self.tenant_a.id)
+
+    def test_no_puede_usar_producto_de_otro_tenant(self):
+        product_b = Product.all_objects.create(
+            tenant=self.tenant_b, nombre="Milanesa", precio="5000.00", unidad="kg", disponible=True
+        )
+        response = self.client.post(
+            "/api/orders/",
+            {
+                "customer": self.customer_a.id,
+                "canal": Order.CANAL_WHATSAPP,
+                "items": [{"product": product_b.id, "cantidad": "1"}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_no_puede_cambiar_estado(self):
+        response = self.client.patch(
+            f"/api/orders/{self.order_a.id}/status/", {"estado": Order.ESTADO_CONFIRMADO}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_no_sirve_para_otros_endpoints(self):
         response = self.client.get("/api/products/")
         self.assertEqual(response.status_code, 401)
