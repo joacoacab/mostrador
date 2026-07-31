@@ -30,7 +30,7 @@ Generado a partir de `docs/plan.md` (aprobado). Checklist ejecutable: **una tare
 
 ### Etapa 2 — Modelo de dominio y multi-tenancy (revisar a mano antes de seguir)
 
-- [ ] **4. Modelo `Tenant`**
+- [x] **4. Modelo `Tenant`**
   Campos según spec sección 3.1 (`id`, `nombre`, `slug`, `plan`, `created_at`) + migración.
   Hecho cuando: migración aplica limpio, admin de Django permite crear un `Tenant`.
 
