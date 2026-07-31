@@ -11,6 +11,9 @@ Node/TypeScript + Express, sin framework de más -- el servicio es chico
 ## Desarrollo local
 
 ```bash
+cp .env.example .env          # ajustar valores si hace falta
+docker compose up -d          # levanta Redis
+
 npm install
 npm run dev
 ```

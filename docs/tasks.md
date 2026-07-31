@@ -205,9 +205,11 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
   Express (mínimo, solo lo justo para el webhook que llega en la tarea 29) + `tsx` para dev, `vitest`/`supertest` para tests, ESLint flat config con `typescript-eslint`. Un único endpoint `GET /health` por ahora (sirve también de healthcheck para Docker/Traefik más adelante). Dockerfile multi-stage (build compila TS, imagen final solo corre `dist/` con `node_modules --omit=dev`), mismo patrón de usuario no-root que `order-core/backend`. Job de CI nuevo en `.github/workflows/ci.yml`, mismo patrón que el de `frontend`.
 
-- [ ] **27. Redis**
+- [x] **27. Redis**
   `docker-compose` para dev, cliente de conexión desde el servicio.
   Hecho cuando: el servicio se conecta a Redis local y puede encolar/leer un mensaje de prueba.
+
+  Cliente oficial `redis` (node-redis v5), conexión lazy vía `getRedisClient()` (se conecta una sola vez, cacheada). `src/queue.ts`: `enqueue`/`dequeue` genéricos sobre una lista de Redis (`LPUSH`/`BLPOP`, JSON como formato de mensaje) -- todavía no es la cola específica de mensajes de WhatsApp, eso llega con la interfaz de la tarea 28. Test de integración contra Redis real (no mockeado), corre tanto local (`docker compose up -d`) como en CI (nuevo servicio `redis` en el job `whatsapp-agent`).
 
 - [ ] **28. Interfaz `WhatsAppProvider`**
   Mensaje entrante normalizado (independiente del formato de cada proveedor) + `sendMessage(telefono, texto)`. Selección de adapter activo por variable de entorno.
