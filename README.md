@@ -10,7 +10,8 @@ Gestor de pedidos multi-rubro con panel interno, pantalla tipo tablet/TV para el
 
 - `order-core/backend` — Django + DRF + PostgreSQL.
 - `order-core/frontend` — Next.js + TypeScript + Tailwind (PWA).
+- `whatsapp-agent` — bot de WhatsApp (Node/TypeScript), Fase 2.
 
 ## Estado
 
-Fase 1 (MVP Order Core standalone) en curso. Ver `docs/tasks.md` para el detalle de qué está hecho.
+Fase 1 (MVP Order Core standalone) completa, en producción. Fase 2 (bot de WhatsApp) en curso. Ver `docs/tasks.md` para el detalle de qué está hecho.

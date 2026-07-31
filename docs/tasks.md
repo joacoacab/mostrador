@@ -199,9 +199,11 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
 ### Etapa 10 — Servicio `whatsapp-agent`
 
-- [ ] **26. Setup del servicio**
+- [x] **26. Setup del servicio**
   Proyecto Node/TypeScript en `whatsapp-agent/`, Dockerfile, CI (lint/test/build, mismo patrón que `order-core`).
   Hecho cuando: el servicio levanta local, CI en verde.
+
+  Express (mínimo, solo lo justo para el webhook que llega en la tarea 29) + `tsx` para dev, `vitest`/`supertest` para tests, ESLint flat config con `typescript-eslint`. Un único endpoint `GET /health` por ahora (sirve también de healthcheck para Docker/Traefik más adelante). Dockerfile multi-stage (build compila TS, imagen final solo corre `dist/` con `node_modules --omit=dev`), mismo patrón de usuario no-root que `order-core/backend`. Job de CI nuevo en `.github/workflows/ci.yml`, mismo patrón que el de `frontend`.
 
 - [ ] **27. Redis**
   `docker-compose` para dev, cliente de conexión desde el servicio.
