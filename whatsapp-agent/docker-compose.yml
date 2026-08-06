@@ -12,5 +12,34 @@ services:
       timeout: 5s
       retries: 5
 
+  # Solo para desarrollo/pruebas contra un número propio (tarea 29). En
+  # producción el proveedor activo es Meta Cloud API (tarea 30/37).
+  waha:
+    image: devlikeapro/waha
+    restart: unless-stopped
+    ports:
+      - "${WAHA_PORT:-3001}:3000"
+    environment:
+      WAHA_API_KEY: ${WAHA_API_KEY:-changeme}
+      WAHA_DASHBOARD_USERNAME: ${WAHA_DASHBOARD_USERNAME:-admin}
+      WAHA_DASHBOARD_PASSWORD: ${WAHA_DASHBOARD_PASSWORD:-changeme}
+      # NOWEB en vez del WEBJS por default: WEBJS depende de un Chromium
+      # embebido que en la práctica se quedó en loop de autenticación sin
+      # pasar nunca a WORKING -- NOWEB no depende de un browser.
+      WHATSAPP_DEFAULT_ENGINE: NOWEB
+      # El webhook apunta al whatsapp-agent corriendo en el host (npm run
+      # dev), no dentro de este compose. host.docker.internal anda en
+      # Docker Desktop "nativo" (Mac/Windows); en algunas instalaciones
+      # con el backend WSL2 no llega al proceso que escucha en la distro
+      # -- si te pasa, seteá WAHA_HOOK_HOST=<ip de `hostname -I` en WSL>
+      # en tu .env.
+      WHATSAPP_HOOK_URL: http://${WAHA_HOOK_HOST:-host.docker.internal}:${PORT:-3000}/webhooks/whatsapp
+      WHATSAPP_HOOK_EVENTS: message
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - waha_sessions:/app/.sessions
+
 volumes:
   redis_data:
+  waha_sessions:

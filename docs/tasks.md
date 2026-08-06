@@ -217,9 +217,16 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
   `src/providers/types.ts`: `IncomingMessage` (forma común) + `WhatsAppProvider` (`sendMessage`, `parseWebhookPayload` -- traduce el body crudo del webhook de cada proveedor a `IncomingMessage[]` --, y `verifyWebhook` opcional para la verificación por `GET`/`hub.challenge` que solo pide Meta). `src/providers/select.ts`: `selectProvider(nombre, registry)` puro, testeado con un registry falso -- no depende de que WAHA/Meta existan todavía. `src/providers/registry.ts`: `getActiveProvider()` real, lee `WHATSAPP_PROVIDER` del entorno contra un registry hoy vacío (se completa en las tareas 29 y 30). Nada usa `getActiveProvider()` todavía -- eso llega con el webhook de la tarea 29.
 
-- [ ] **29. Adapter WAHA**
+- [x] **29. Adapter WAHA**
   Webhook de recepción + envío, implementando la interfaz de la tarea 28. Se prueba con un número de WhatsApp propio, vía QR.
   Hecho cuando: un mensaje mandado desde un teléfono real (por WAHA) llega al webhook y queda encolado en Redis; el servicio puede mandar una respuesta de vuelta y llega al teléfono.
+
+  `src/providers/waha.ts`: `sendMessage` vía `POST /api/sendText`, `parseWebhookPayload` traduce el evento `message` de WAHA (ignora `fromMe` y otros eventos como `message.ack`). Rutas nuevas en `app.ts`: `POST /webhooks/whatsapp` (encola en Redis vía `getActiveProvider().parseWebhookPayload`) y `GET /webhooks/whatsapp` (404 para WAHA, que no implementa `verifyWebhook` -- eso lo usa Meta en la tarea 30). WAHA se suma a `docker-compose.yml` para desarrollo (engine `NOWEB`, sin dependencia de Chromium).
+
+  Verificado de punta a punta con un número real (línea de repuesto, WhatsApp Business, vía WAHA): mensaje mandado desde otro teléfono → llega al webhook → queda en la cola de Redis (`whatsapp:incoming-messages`) → se le mandó una respuesta real que el teléfono recibió. En el camino aparecieron tres problemas reales, documentados en el README del servicio para no repetirlos:
+  - Un remitente con la privacidad de número activada (frecuente en cuentas Business) manda el `from` como `<id>@lid` en vez de `<telefono>@c.us` -- el código original le sacaba el sufijo asumiendo que siempre era un teléfono, lo cual iba a romper la respuesta. Se corrigió guardando el chatId completo en `IncomingMessage.from`.
+  - La imagen de `devlikeapro/waha` cacheada localmente tenía casi un año -- con esa versión la sesión quedaba en loop de autenticación sin pasar nunca a `WORKING` (motor NOWEB tirando errores de protocolo). Se resolvió con `docker compose pull`.
+  - `host.docker.internal` no llegó al proceso corriendo en la distro WSL2 en esta máquina -- se agregó `WAHA_HOOK_HOST` como variable de override para poder usar la IP real de la distro.
 
 - [ ] **30. Adapter Meta Cloud API** 🔒
   `GET` de verificación (hub.challenge) + `POST` de recepción + envío vía Send Message API, mismo contrato que el adapter WAHA.

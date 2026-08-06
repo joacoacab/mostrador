@@ -1,7 +1,11 @@
 /** Mensaje de texto entrante, en un formato común sin importar el
  * proveedor (WAHA, Meta Cloud API) que lo haya recibido. */
 export interface IncomingMessage {
-  /** Teléfono del cliente, tal como lo manda el proveedor (sin normalizar a E.164 todavía). */
+  /** Identificador del remitente tal como lo da el proveedor -- para WAHA
+   * es el chatId completo (`<id>@c.us` o, si el remitente tiene privacidad
+   * de número activada, `<id>@lid`, que NO es el teléfono real). Hay que
+   * pasarlo de vuelta tal cual a `sendMessage` para contestarle a ese
+   * mismo remitente; no asumir que es un teléfono normalizable a E.164. */
   from: string;
   text: string;
   providerMessageId: string;
