@@ -151,6 +151,23 @@ describe("runAgent", () => {
     expect(toolResultMsg.content[0].is_error).toBe(true);
   });
 
+  it("ejecuta consultar_base_de_conocimiento con la pregunta del cliente (tarea 39, RAG)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse([{ id: 1, contenido: "Aceptamos devoluciones con ticket dentro de los 10 días." }]));
+
+    const client = fakeClient(
+      toolUseMessage("consultar_base_de_conocimiento", { pregunta: "puedo devolver un producto?" }),
+      textMessage("Sí, podés devolverlo con ticket dentro de los 10 días."),
+    );
+
+    const reply = await runAgent("puedo devolver un producto?", ctx, { client });
+
+    expect(reply).toBe("Sí, podés devolverlo con ticket dentro de los 10 días.");
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/knowledge/search/?query=puedo%20devolver%20un%20producto%3F");
+  });
+
   it("corta el loop y da una respuesta genérica si se pasa de MAX_TURNS", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse([]));
     const client = fakeClient(

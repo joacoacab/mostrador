@@ -21,6 +21,7 @@ urlpatterns = [
     path('api/', include('catalog.urls')),
     path('api/', include('orders.urls')),
     path('api/', include('tenants.urls')),
+    path('api/', include('knowledge.urls')),
     # Documentación de API (tarea 18b). Público (AllowAny): la
     # documentación en sí no debería requerir estar logueado para
     # verse, aunque "probarla" desde el Swagger UI sí necesita pegar

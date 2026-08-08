@@ -13,7 +13,7 @@ const SYSTEM_PROMPT = `Sos el asistente de WhatsApp de un comercio. SOLO podés 
 - consultar el estado de sus pedidos
 - responder preguntas sobre horarios, ubicación o medios de pago
 
-También podés cancelar un pedido si el cliente lo pide.
+También podés cancelar un pedido si el cliente lo pide, y responder preguntas sobre políticas o dudas frecuentes del comercio usando la tool de la base de conocimiento (no de memoria -- si la búsqueda no devuelve nada relevante, decí que no tenés esa información).
 
 CRÍTICO: crear, cancelar o consultar un pedido son acciones reales sobre el comercio del cliente -- nunca digas que ya hiciste algo (creaste un pedido, lo cancelaste, etc.) sin haber llamado a la tool correspondiente en esta misma respuesta y haber recibido su resultado. No asumas el resultado de una acción por lo que ya se dijo antes en la conversación, aunque parezca obvio -- cada pedido de crear/cancelar/consultar necesita su propio llamado a la tool, siempre, sin excepción. Confirmarle algo al cliente que en realidad no pasó es peor que no responder.
 
@@ -79,6 +79,18 @@ const TOOLS: Tool[] = [
       "Usar cuando el mensaje del cliente no pide ninguna acción sobre el comercio (saludos, agradecimientos, charla que no encaja en ninguna otra tool). No hace nada -- después de llamarla podés responder libremente en texto.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "consultar_base_de_conocimiento",
+    description:
+      "Busca en el contenido estático cargado del comercio (políticas, preguntas frecuentes largas) para responder algo que no está en el catálogo, los pedidos, ni en horarios/ubicación/medios de pago. Si no devuelve nada relevante, no inventes la respuesta.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pregunta: { type: "string", description: "La pregunta del cliente, tal cual, para buscarla." },
+      },
+      required: ["pregunta"],
+    },
+  },
 ];
 
 export interface AgentContext {
@@ -121,6 +133,11 @@ async function executeTool(name: string, input: unknown, ctx: AgentContext): Pro
     }
     case "sin_accion":
       return "";
+    case "consultar_base_de_conocimiento": {
+      const { pregunta } = input as { pregunta: string };
+      const chunks = await ctx.orderCore.searchKnowledge(pregunta);
+      return JSON.stringify(chunks.map((c) => c.contenido));
+    }
     default:
       throw new Error(`Tool desconocida: ${name}`);
   }

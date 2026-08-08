@@ -147,4 +147,16 @@ describe("OrderCoreClient", () => {
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({ customer_phone: "+5491122334455" });
   });
+
+  it("searchKnowledge manda la pregunta como query param (tarea 39, RAG)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse([{ id: 1, contenido: "Política de cambios: 10 días con ticket." }]));
+
+    const chunks = await client.searchKnowledge("cual es la politica de cambios?");
+
+    expect(chunks).toEqual([{ id: 1, contenido: "Política de cambios: 10 días con ticket." }]);
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/knowledge/search/?query=cual%20es%20la%20politica%20de%20cambios%3F");
+  });
 });

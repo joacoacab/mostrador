@@ -1,6 +1,9 @@
 services:
   db:
-    image: postgres:16-alpine
+    # pgvector/pgvector en vez de postgres a secas (tarea 39, RAG Engine):
+    # trae la extensión vector precompilada. No hay build -alpine de
+    # pgvector, se cambia a la imagen Debian (mismo Postgres 16 abajo).
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     env_file:
       - .env.prod

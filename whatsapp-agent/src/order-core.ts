@@ -54,6 +54,11 @@ export interface CreateOrderInput {
   items: { product: number; cantidad: string }[];
 }
 
+export interface KnowledgeChunk {
+  id: number;
+  contenido: string;
+}
+
 export interface OrderCoreClient {
   getCatalog(): Promise<Product[]>;
   getTenantInfo(): Promise<TenantInfo>;
@@ -64,6 +69,7 @@ export interface OrderCoreClient {
   getOrder(id: number): Promise<Order>;
   getOrdersByCustomerPhone(telefono: string): Promise<Order[]>;
   cancelOrder(id: number, customerPhone: string): Promise<Order>;
+  searchKnowledge(query: string): Promise<KnowledgeChunk[]>;
 }
 
 /** Habla con el Order Core autenticado como bot (tarea 25, header
@@ -117,6 +123,7 @@ export function createOrderCoreClient(config: OrderCoreConfig): OrderCoreClient 
         method: "POST",
         body: JSON.stringify({ customer_phone: customerPhone }),
       }),
+    searchKnowledge: (query) => request<KnowledgeChunk[]>(`/api/knowledge/search/?query=${encodeURIComponent(query)}`),
   };
 }
 

@@ -1,6 +1,8 @@
 services:
   db:
-    image: postgres:16
+    # pgvector/pgvector en vez de postgres a secas (tarea 39, RAG Engine):
+    # trae la extensión vector precompilada, mismo Postgres 16 por debajo.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-mostrador}
