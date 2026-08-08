@@ -290,9 +290,12 @@ Ver `docs/plan.md` sección "Ampliación -- Capa de IA" para el contexto complet
   Hecho cuando: pedirle al bot cancelar un pedido propio lo cancela de verdad en el Order Core (queda en estado cancelado) y el bot lo confirma; no puede cancelar un pedido de otro cliente.
   Verificado con el fix aplicado: 11/11 corridas limpias (teléfono único por corrida, sin pedidos ambiguos acumulados) llamaron a la tool real y el pedido quedó `cancelado` en la base -- 0 confirmaciones falsas, contra ~25-50% antes del fix. Se comprobó también que no rompe: mensajes casuales ("hola", "gracias") siguen respondiendo natural vía `sin_accion`; el flujo de creación de pedido y el filtro de temas fuera de alcance (tarea 33) siguen funcionando; los 48 tests (47 + 1 nuevo que fija `tool_choice` por turno) y lint/typecheck pasan. Verificación final de punta a punta: conversación completa (crear pedido -> nada más -> cancelar) contra el Order Core real dejó el pedido en `cancelado`, y un intento de cancelar un pedido de otro cliente fue rechazado y el pedido ajeno quedó intacto en `pendiente`.
 
-- [ ] **37. Costo de IA logueado por conversación**
+- [x] **37. Costo de IA logueado por conversación**
   Loguear tokens de entrada/salida (y costo estimado) de cada llamado a Claude, asociado al teléfono/conversación.
+  `src/cost.ts`: tabla de precios USD por millón de tokens (Haiku 4.5, Sonnet 5, Opus 5, Fable 5 -- precios de agosto 2026, a mantener actualizada) + `estimateCostUsd(model, inputTokens, outputTokens)`, devuelve `null` si el modelo no tiene precio cargado en vez de romper el logging.
+  `agent.ts`: `runAgent` acumula `input_tokens`/`output_tokens` de todos los turnos del loop (un mensaje del cliente puede disparar varios llamados a Claude si hay tools de por medio) y loguea una sola línea al final, asociada a `ctx.customerPhone`.
   Hecho cuando: después de una conversación de prueba, se puede ver en los logs del worker cuánto costó en tokens/USD.
+  Verificado con una conversación real de 2 turnos: `[costo-ia] telefono=smoke-test-37 modelo=claude-haiku-4-5 input_tokens=3461 output_tokens=53 costo_usd=$0.003726`. 51 tests (2 nuevos de `cost.ts` + 1 de logging en `agent.test.ts`), lint y typecheck en verde.
 
 - [ ] **38. LLM Router (clasificador + modelo principal)**
   Separar en dos llamados: uno barato clasifica la intención (consulta simple vs. algo que necesita razonar/tools) antes de decidir si hace falta el modelo principal -- ej. horarios/ubicación no deberían disparar el loop completo del agente.

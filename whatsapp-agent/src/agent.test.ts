@@ -14,7 +14,7 @@ function fakeClient(...responses: Anthropic.Message[]): Pick<Anthropic, "message
   return { messages: { create } as unknown as Anthropic["messages"] };
 }
 
-function textMessage(text: string): Anthropic.Message {
+function textMessage(text: string, usage = { input_tokens: 1, output_tokens: 1 }): Anthropic.Message {
   return {
     id: "msg_1",
     type: "message",
@@ -23,11 +23,16 @@ function textMessage(text: string): Anthropic.Message {
     content: [{ type: "text", text, citations: null }],
     stop_reason: "end_turn",
     stop_sequence: null,
-    usage: { input_tokens: 1, output_tokens: 1 } as Anthropic.Usage,
+    usage: usage as Anthropic.Usage,
   } as Anthropic.Message;
 }
 
-function toolUseMessage(name: string, input: unknown, id = "toolu_1"): Anthropic.Message {
+function toolUseMessage(
+  name: string,
+  input: unknown,
+  id = "toolu_1",
+  usage = { input_tokens: 1, output_tokens: 1 },
+): Anthropic.Message {
   return {
     id: "msg_1",
     type: "message",
@@ -36,7 +41,7 @@ function toolUseMessage(name: string, input: unknown, id = "toolu_1"): Anthropic
     content: [{ type: "tool_use", id, name, input }],
     stop_reason: "tool_use",
     stop_sequence: null,
-    usage: { input_tokens: 1, output_tokens: 1 } as Anthropic.Usage,
+    usage: usage as Anthropic.Usage,
   } as Anthropic.Message;
 }
 
@@ -197,5 +202,22 @@ describe("runAgent", () => {
 
     const sentMessages = (client.messages.create as ReturnType<typeof vi.fn>).mock.calls[0][0].messages;
     expect(sentMessages).toEqual([...history, { role: "user", content: "dame 2" }]);
+  });
+
+  it("loguea el costo acumulado de todos los turnos, asociado al teléfono (tarea 37)", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse([]));
+    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const client = fakeClient(
+      toolUseMessage("ver_catalogo", {}, "toolu_1", { input_tokens: 100, output_tokens: 20 }),
+      textMessage("Tenemos Chipa a $2500 la docena.", { input_tokens: 150, output_tokens: 15 }),
+    );
+
+    await runAgent("qué tienen?", ctx, { client });
+
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining(`telefono=${ctx.customerPhone}`));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("input_tokens=250"));
+    expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("output_tokens=35"));
+    logSpy.mockRestore();
   });
 });

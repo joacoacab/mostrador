@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
+import { estimateCostUsd } from "./cost.js";
 import type { OrderCoreClient } from "./order-core.js";
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
@@ -130,15 +131,28 @@ async function executeTool(name: string, input: unknown, ctx: AgentContext): Pro
  * devuelve el texto final. `client` es inyectable para poder testear sin
  * pegarle a la API real; `history` es la memoria corta de la tarea 34
  * (turnos previos de la misma conversación, sin los tool_use intermedios --
- * esos ya se resolvieron, no hace falta que vuelvan a viajar). */
+ * esos ya se resolvieron, no hace falta que vuelvan a viajar). Al terminar
+ * loguea el costo acumulado de todos los turnos de este mensaje (tarea 37). */
 export interface RunAgentOptions {
   client?: Pick<Anthropic, "messages">;
   history?: MessageParam[];
 }
 
+function logCost(customerPhone: string, inputTokens: number, outputTokens: number): void {
+  const costUsd = estimateCostUsd(MODEL, inputTokens, outputTokens);
+  const costLabel = costUsd === null ? "desconocido (sin precio cargado para este modelo)" : `$${costUsd.toFixed(6)}`;
+  console.log(
+    `[costo-ia] telefono=${customerPhone} modelo=${MODEL} input_tokens=${inputTokens} output_tokens=${outputTokens} costo_usd=${costLabel}`,
+  );
+}
+
 export async function runAgent(text: string, ctx: AgentContext, options: RunAgentOptions = {}): Promise<string> {
   const client = options.client ?? new Anthropic();
   const messages: MessageParam[] = [...(options.history ?? []), { role: "user", content: text }];
+
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let reply = "Perdón, no pude resolver tu pedido en este momento. En un rato te escribe alguien del local.";
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
@@ -150,9 +164,13 @@ export async function runAgent(text: string, ctx: AgentContext, options: RunAgen
       messages,
     });
 
+    inputTokens += response.usage.input_tokens;
+    outputTokens += response.usage.output_tokens;
+
     if (response.stop_reason !== "tool_use") {
       const textBlock = response.content.find((block) => block.type === "text");
-      return textBlock?.type === "text" ? textBlock.text : "";
+      reply = textBlock?.type === "text" ? textBlock.text : "";
+      break;
     }
 
     messages.push({ role: "assistant", content: response.content });
@@ -175,5 +193,6 @@ export async function runAgent(text: string, ctx: AgentContext, options: RunAgen
     messages.push({ role: "user", content: toolResults });
   }
 
-  return "Perdón, no pude resolver tu pedido en este momento. En un rato te escribe alguien del local.";
+  logCost(ctx.customerPhone, inputTokens, outputTokens);
+  return reply;
 }
