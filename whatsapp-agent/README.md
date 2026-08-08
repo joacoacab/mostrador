@@ -35,9 +35,22 @@ default `claude-haiku-4-5` -- las 4 tools son acotadas, no hace falta un
 modelo más caro para elegir cuál usar). Loop manual de tool use (`while
 stop_reason === "tool_use"`) sobre 4 tools -- `ver_catalogo`,
 `crear_pedido`, `consultar_pedidos`, `info_local` -- que llaman al cliente
-del Order Core. `src/worker-entry.ts` usa `runAgent` como `handler` del
-worker, con un `catch` genérico (el fallback "de verdad", con log
-estructurado, es la tarea 35).
+del Order Core.
+
+`src/memory.ts` (tarea 34) guarda los últimos 10 turnos de cada
+conversación en Redis, con TTL (`MEMORY_TTL_SECONDS`, default 30 min --
+"memoria corta": una charla inactiva se olvida sola). `src/debounce.ts`
+(misma tarea) agrupa mensajes seguidos del mismo remitente durante una
+ventana (`MESSAGE_DEBOUNCE_MS`, default 6000ms) antes de invocar al agente
+-- es común que alguien mande una idea en 2-3 mensajes cortos por
+WhatsApp en vez de uno solo, y sin esto el bot podía contestar a mitad de
+frase. Buffer en memoria del proceso (no en Redis): alcanza con un solo
+worker, no hay réplicas todavía (ver tarea 36).
+
+`src/worker-entry.ts` compone `debounce(handleMessage)` como `handler` del
+worker -- `handleMessage` trae el historial de `memory.ts`, llama a
+`runAgent`, y guarda el turno nuevo. El `catch` genérico ahí es
+provisorio, el fallback "de verdad" con log estructurado es la tarea 35.
 
 ## Desarrollo local
 

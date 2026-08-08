@@ -49,7 +49,7 @@ describe("runAgent", () => {
   it("responde directo si Claude no pide ninguna tool", async () => {
     const client = fakeClient(textMessage("Hola! ¿En qué te puedo ayudar?"));
 
-    const reply = await runAgent("hola", ctx, client);
+    const reply = await runAgent("hola", ctx, { client });
 
     expect(reply).toBe("Hola! ¿En qué te puedo ayudar?");
   });
@@ -64,7 +64,7 @@ describe("runAgent", () => {
       textMessage("Tenemos Chipa a $2500 la docena."),
     );
 
-    const reply = await runAgent("qué tienen?", ctx, client);
+    const reply = await runAgent("qué tienen?", ctx, { client });
 
     expect(reply).toBe("Tenemos Chipa a $2500 la docena.");
     expect(fetchSpy).toHaveBeenCalledWith("http://order-core.local/api/catalog/", expect.anything());
@@ -106,7 +106,7 @@ describe("runAgent", () => {
       textMessage("Listo, pedido confirmado."),
     );
 
-    const reply = await runAgent("quiero 2 chipas", ctx, client);
+    const reply = await runAgent("quiero 2 chipas", ctx, { client });
 
     expect(reply).toBe("Listo, pedido confirmado.");
     const createCustomerCall = fetchSpy.mock.calls.find(([url, init]) => {
@@ -128,7 +128,7 @@ describe("runAgent", () => {
       textMessage("No pude traer el catálogo ahora, probá en un rato."),
     );
 
-    const reply = await runAgent("qué tienen?", ctx, client);
+    const reply = await runAgent("qué tienen?", ctx, { client });
 
     expect(reply).toBe("No pude traer el catálogo ahora, probá en un rato.");
     const secondCallMessages = (client.messages.create as ReturnType<typeof vi.fn>).mock.calls[1][0].messages;
@@ -142,8 +142,21 @@ describe("runAgent", () => {
       ...Array.from({ length: 10 }, () => toolUseMessage("ver_catalogo", {})),
     );
 
-    const reply = await runAgent("hola", ctx, client);
+    const reply = await runAgent("hola", ctx, { client });
 
     expect(reply).toContain("no pude resolver");
+  });
+
+  it("manda el history (memoria corta, tarea 34) antes del mensaje nuevo", async () => {
+    const client = fakeClient(textMessage("Sí, va la docena de chipa que pediste antes."));
+    const history: Anthropic.MessageParam[] = [
+      { role: "user", content: "quiero chipa" },
+      { role: "assistant", content: "¿Cuántas docenas?" },
+    ];
+
+    await runAgent("dame 2", ctx, { client, history });
+
+    const sentMessages = (client.messages.create as ReturnType<typeof vi.fn>).mock.calls[0][0].messages;
+    expect(sentMessages).toEqual([...history, { role: "user", content: "dame 2" }]);
   });
 });

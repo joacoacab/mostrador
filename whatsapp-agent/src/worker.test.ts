@@ -53,6 +53,23 @@ describe("processNextMessage", () => {
     });
   });
 
+  it("no manda nada si el handler devuelve una respuesta vacía (debounce, tarea 34)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    const queue = `test-worker-vacio-${Date.now()}`;
+    await enqueue(queue, {
+      from: "5491122334455@c.us",
+      text: "hola",
+      providerMessageId: "id-buffered",
+      timestamp: new Date(),
+    });
+
+    const handler = vi.fn().mockResolvedValue("");
+    const processed = await processNextMessage(handler, { queue, timeoutSeconds: 5 });
+
+    expect(processed).toBe(true);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it("no interrumpe el llamador si el handler tira un error -- lo propaga (runWorker es quien lo absorbe)", async () => {
     const queue = `test-worker-error-${Date.now()}`;
     await enqueue(queue, {

@@ -264,9 +264,15 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
   - **El system prompt inicial no alcanzaba.** Un typo del usuario ("capitulo" en vez de "catalogo") hizo que el agente contestara sobre series/películas con conocimiento general en vez de redirigir -- listar las 4 tools no le puso un límite de scope. Se corrigió agregando al prompt que no es un asistente de propósito general y que ante un mensaje ambiguo tiene que preguntar, no adivinar. Ver el gotcha completo en el README del servicio.
   - **Sin memoria (todavía) cada mensaje es una conversación nueva** -- el usuario lo notó como que el bot "no se acordaba" de haber dicho que quería pedir chipa un mensaje antes. Es el comportamiento esperado hasta la tarea 34 (memoria corta por `customer_phone`), no un bug de esta tarea.
 
-- [ ] **34. Memoria corta por `customer_phone`**
+- [x] **34. Memoria corta por `customer_phone`**
   Contexto de conversación, ligado al teléfono del cliente.
   Hecho cuando: dos mensajes seguidos del mismo teléfono comparten contexto (ej. "dame 2" después de "quiero chipa" arma bien el pedido).
+
+  Se sumó algo que no estaba en el desglose original, a pedido explícito del usuario: **debounce de mensajes**. Es común que alguien mande una idea en 2-3 mensajes cortos seguidos por WhatsApp en vez de uno solo ("quiero" / "2 chipas") -- sin agrupar esos mensajes, el bot podía terminar contestando a mitad de frase. `src/debounce.ts` junta mensajes del mismo remitente durante una ventana (`MESSAGE_DEBOUNCE_MS`, default 6000ms, decisión explícita del usuario) antes de invocar al agente, con un buffer en memoria del proceso (alcanza con un solo worker, no hay réplicas todavía). `worker.ts` se ajustó para que un `handler` pueda devolver `""` sin que eso mande un WhatsApp vacío -- lo usa `debounce()` para señalar "todavía no hay respuesta, la mando yo cuando termine la ventana".
+
+  `src/memory.ts`: los últimos 10 turnos (20 mensajes) de cada conversación en Redis, con TTL (`MEMORY_TTL_SECONDS`, default 30 min -- "memoria *corta*", no historial permanente). `runAgent` (tarea 33) ahora acepta `options.history` y lo antepone al mensaje nuevo. `worker-entry.ts` compone `debounce(handleMessage)`, donde `handleMessage` trae el historial, llama al agente, y guarda el turno resultante.
+
+  Verificado de punta a punta con WhatsApp real: "quiero chipa" y "dame 2" mandados por separado (~22s de diferencia, más que el debounce -- o sea dos turnos distintos, no un solo batch) resultaron en un pedido de 2 Chipa creado correctamente en el Order Core real, confirmando que la memoria conectó ambos turnos. El usuario confirmó que la experiencia de chat mejoró notoriamente contra la tarea 33 (antes "se olvidaba" de lo dicho un mensaje antes).
 
 - [ ] **35. Fallback genérico**
   Mensaje genérico al cliente + log estructurado simple cuando el agente no puede resolver algo (sin UI en el panel, eso es Fase 3).

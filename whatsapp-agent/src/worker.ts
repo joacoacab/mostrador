@@ -3,6 +3,10 @@ import { getActiveProvider } from "./providers/registry.js";
 import type { IncomingMessage } from "./providers/types.js";
 import { dequeue } from "./queue.js";
 
+/** Un handler puede devolver "" (o cualquier string falsy) para decir "todavía
+ * no hay respuesta" -- lo usa `debounce()` (tarea 34), que agrupa mensajes
+ * seguidos del mismo remitente y manda la respuesta real por su cuenta
+ * cuando termina la ventana de espera, no en este mismo llamado. */
 export type MessageHandler = (message: IncomingMessage) => Promise<string>;
 
 interface ProcessOptions {
@@ -25,7 +29,9 @@ export async function processNextMessage(
   const message: IncomingMessage = { ...raw, timestamp: new Date(raw.timestamp) };
 
   const reply = await handler(message);
-  await getActiveProvider().sendMessage(message.from, reply);
+  if (reply) {
+    await getActiveProvider().sendMessage(message.from, reply);
+  }
   return true;
 }
 

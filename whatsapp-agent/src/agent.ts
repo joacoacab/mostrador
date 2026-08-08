@@ -99,13 +99,17 @@ async function executeTool(name: string, input: unknown, ctx: AgentContext): Pro
 /** Loop manual de tool use (spec 4.1, tarea 33): manda el mensaje del
  * cliente, ejecuta las tools que Claude pida contra el Order Core, y
  * devuelve el texto final. `client` es inyectable para poder testear sin
- * pegarle a la API real. */
-export async function runAgent(
-  text: string,
-  ctx: AgentContext,
-  client: Pick<Anthropic, "messages"> = new Anthropic(),
-): Promise<string> {
-  const messages: MessageParam[] = [{ role: "user", content: text }];
+ * pegarle a la API real; `history` es la memoria corta de la tarea 34
+ * (turnos previos de la misma conversación, sin los tool_use intermedios --
+ * esos ya se resolvieron, no hace falta que vuelvan a viajar). */
+export interface RunAgentOptions {
+  client?: Pick<Anthropic, "messages">;
+  history?: MessageParam[];
+}
+
+export async function runAgent(text: string, ctx: AgentContext, options: RunAgentOptions = {}): Promise<string> {
+  const client = options.client ?? new Anthropic();
+  const messages: MessageParam[] = [...(options.history ?? []), { role: "user", content: text }];
 
   for (let turn = 0; turn < MAX_TURNS; turn++) {
     const response = await client.messages.create({
