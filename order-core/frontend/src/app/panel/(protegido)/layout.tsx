@@ -51,6 +51,9 @@ export default function ProtectedPanelLayout({ children }: { children: ReactNode
           <Link href="/panel/pantalla" className="text-sm text-gray-500 hover:text-gray-900">
             Parear pantalla
           </Link>
+          <Link href="/panel/conversaciones" className="text-sm text-gray-500 hover:text-gray-900">
+            Conversaciones
+          </Link>
         </nav>
         <div className="flex items-center gap-4 text-sm">
           <span>{user?.nombre}</span>

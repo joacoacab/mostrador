@@ -168,6 +168,27 @@ describe("runAgent", () => {
     expect(url).toBe("http://order-core.local/api/knowledge/search/?query=puedo%20devolver%20un%20producto%3F");
   });
 
+  it("ejecuta escalar_a_humano con el resumen que arma el modelo (tarea 41)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ id: 1, estado: "requiere_atencion", resumen: "El cliente está enojado por una demora.", mensajes: [] }),
+    );
+
+    const client = fakeClient(
+      toolUseMessage("escalar_a_humano", { resumen: "El cliente está enojado por una demora." }),
+      textMessage("Entiendo, ya derivé tu caso a un operador que te va a contactar."),
+    );
+
+    const reply = await runAgent("esto es un desastre, quiero hablar con alguien YA", ctx, { client });
+
+    expect(reply).toBe("Entiendo, ya derivé tu caso a un operador que te va a contactar.");
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/conversations/mine/escalar/");
+    expect(JSON.parse(init.body as string)).toEqual({
+      customer_phone: ctx.customerPhone,
+      resumen: "El cliente está enojado por una demora.",
+    });
+  });
+
   it("corta el loop y da una respuesta genérica si se pasa de MAX_TURNS", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(jsonResponse([]));
     const client = fakeClient(

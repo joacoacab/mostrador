@@ -90,6 +90,36 @@ class MyConversationViewTests(TestCase):
         response = client.get("/api/conversations/mine/?customer_phone=%2B5491111111")
         self.assertEqual(response.status_code, 403)
 
+    def test_escalar_marca_requiere_atencion_y_pliega_todo_al_resumen(self):
+        self.client.post(
+            "/api/conversations/mine/messages/",
+            {"customer_phone": "+5491111111", "role": "user", "content": "quiero hablar con una persona"},
+            format="json",
+        )
+
+        response = self.client.post(
+            "/api/conversations/mine/escalar/",
+            {"customer_phone": "+5491111111", "resumen": "El cliente pide hablar con una persona."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["estado"], Conversation.ESTADO_REQUIERE_ATENCION)
+        self.assertEqual(data["resumen"], "El cliente pide hablar con una persona.")
+        self.assertEqual(data["mensajes"], [])  # todo plegado, nada queda "sin resumir"
+
+    def test_escalar_crea_la_conversacion_si_hace_falta(self):
+        response = self.client.post(
+            "/api/conversations/mine/escalar/",
+            {"customer_phone": "+5493333333", "resumen": "Pregunta fuera de alcance."},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        conversation = Conversation.all_objects.get(tenant=self.tenant_a, customer_phone="+5493333333")
+        self.assertEqual(conversation.estado, Conversation.ESTADO_REQUIERE_ATENCION)
+
 
 class ConversationViewSetTests(TestCase):
     def setUp(self):
@@ -101,6 +131,7 @@ class ConversationViewSetTests(TestCase):
         self.conv_a = Conversation.objects.create(
             tenant=self.tenant_a, customer_phone="+5491111111", estado=Conversation.ESTADO_REQUIERE_ATENCION
         )
+        self.conv_activa = Conversation.objects.create(tenant=self.tenant_a, customer_phone="+5491111112")
         Conversation.objects.create(tenant=self.tenant_b, customer_phone="+5492222222")
         self.client = APIClient()
         authenticate_as(self.client, self.admin)
@@ -108,11 +139,24 @@ class ConversationViewSetTests(TestCase):
     def test_lista_solo_las_conversaciones_del_propio_tenant(self):
         response = self.client.get("/api/conversations/")
 
-        telefonos = [c["customer_phone"] for c in response.json()]
-        self.assertEqual(telefonos, ["+5491111111"])
+        telefonos = {c["customer_phone"] for c in response.json()}
+        self.assertEqual(telefonos, {"+5491111111", "+5491111112"})
 
     def test_el_estado_se_puede_consultar(self):
         response = self.client.get(f"/api/conversations/{self.conv_a.id}/")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["estado"], Conversation.ESTADO_REQUIERE_ATENCION)
+
+    def test_filtra_por_estado(self):
+        response = self.client.get(f"/api/conversations/?estado={Conversation.ESTADO_REQUIERE_ATENCION}")
+
+        telefonos = [c["customer_phone"] for c in response.json()]
+        self.assertEqual(telefonos, ["+5491111111"])
+
+    def test_resolver_vuelve_a_dejarla_activa(self):
+        response = self.client.post(f"/api/conversations/{self.conv_a.id}/resolver/")
+
+        self.assertEqual(response.status_code, 200)
+        self.conv_a.refresh_from_db()
+        self.assertEqual(self.conv_a.estado, Conversation.ESTADO_ACTIVA)

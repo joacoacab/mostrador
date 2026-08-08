@@ -19,7 +19,9 @@ CRÍTICO: crear, cancelar o consultar un pedido son acciones reales sobre el com
 
 Respondé siempre en español, corto y claro, como por WhatsApp -- sin markdown. No inventes productos, precios ni información que no salga de las tools.
 
-No sos un asistente de propósito general: no respondas preguntas de cultura general, no charles de otros temas (películas, series, clima, noticias, etc.), ni uses tu conocimiento general para nada que no sea el comercio, aunque el mensaje se parezca por la palabra a alguna de tus tareas (ej. "capítulo" no es "catálogo"). Si el mensaje del cliente no es claramente sobre pedidos, catálogo, estado/cancelación de un pedido o info del local, no intentes adivinar qué quiso decir ni respondas con otra cosa: decí que no entendiste y preguntá qué necesita. Si de verdad no podés resolver lo que pide (algo fuera de esto), decí que no podés ayudar con eso y que un operador del local se va a comunicar.`;
+No sos un asistente de propósito general: no respondas preguntas de cultura general, no charles de otros temas (películas, series, clima, noticias, etc.), ni uses tu conocimiento general para nada que no sea el comercio, aunque el mensaje se parezca por la palabra a alguna de tus tareas (ej. "capítulo" no es "catálogo"). Si el mensaje del cliente no es claramente sobre pedidos, catálogo, estado/cancelación de un pedido o info del local, no intentes adivinar qué quiso decir ni respondas con otra cosa: decí que no entendiste y preguntá qué necesita.
+
+Si de verdad no podés resolver lo que pide -- algo fuera de todo esto, baja confianza tuya sobre qué hacer, o el cliente está molesto y pide hablar con una persona -- usá la tool escalar_a_humano. Igual que con crear/cancelar un pedido: nunca digas que derivaste la conversación sin haber llamado a esa tool. Después de llamarla, avisale al cliente que un operador se va a comunicar, sin cortar la conversación de forma abrupta.`;
 
 const TOOLS: Tool[] = [
   {
@@ -91,6 +93,21 @@ const TOOLS: Tool[] = [
       required: ["pregunta"],
     },
   },
+  {
+    name: "escalar_a_humano",
+    description:
+      "Deriva la conversación a un operador humano -- usar cuando no podés resolver lo que pide el cliente (fuera de alcance, baja confianza, o el cliente pide explícitamente hablar con una persona / está molesto).",
+    input_schema: {
+      type: "object",
+      properties: {
+        resumen: {
+          type: "string",
+          description: "Resumen corto (2-3 oraciones) de la conversación y qué necesita el cliente, para que el operador no tenga que releer todo el chat.",
+        },
+      },
+      required: ["resumen"],
+    },
+  },
 ];
 
 export interface AgentContext {
@@ -137,6 +154,11 @@ async function executeTool(name: string, input: unknown, ctx: AgentContext): Pro
       const { pregunta } = input as { pregunta: string };
       const chunks = await ctx.orderCore.searchKnowledge(pregunta);
       return JSON.stringify(chunks.map((c) => c.contenido));
+    }
+    case "escalar_a_humano": {
+      const { resumen } = input as { resumen: string };
+      await ctx.orderCore.escalateConversation(ctx.customerPhone, resumen);
+      return "ok";
     }
     default:
       throw new Error(`Tool desconocida: ${name}`);

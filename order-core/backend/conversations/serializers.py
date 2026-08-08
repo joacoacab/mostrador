@@ -49,3 +49,8 @@ class UpdateSummarySerializer(serializers.Serializer):
     customer_phone = serializers.CharField()
     resumen = serializers.CharField()
     resumido_hasta = serializers.IntegerField()
+
+
+class EscalateSerializer(serializers.Serializer):
+    customer_phone = serializers.CharField()
+    resumen = serializers.CharField()

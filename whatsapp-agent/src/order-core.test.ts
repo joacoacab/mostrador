@@ -159,4 +159,61 @@ describe("OrderCoreClient", () => {
     const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("http://order-core.local/api/knowledge/search/?query=cual%20es%20la%20politica%20de%20cambios%3F");
   });
+
+  it("getConversation pega a /api/conversations/mine/ con el teléfono (tarea 40)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ id: 1, estado: "activa", resumen: "", mensajes: [] }));
+
+    await client.getConversation("+5491122334455");
+
+    const [url] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/conversations/mine/?customer_phone=%2B5491122334455");
+  });
+
+  it("appendMessage manda role y content al endpoint de mensajes (tarea 40)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ id: 1, estado: "activa", resumen: "", mensajes: [] }));
+
+    await client.appendMessage("+5491122334455", "user", "hola");
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/conversations/mine/messages/");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ customer_phone: "+5491122334455", role: "user", content: "hola" });
+  });
+
+  it("updateConversationSummary manda el resumen y resumido_hasta por PATCH (tarea 40)", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(jsonResponse({ id: 1, estado: "activa", resumen: "un resumen", mensajes: [] }));
+
+    await client.updateConversationSummary("+5491122334455", "un resumen", 10);
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/conversations/mine/");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({
+      customer_phone: "+5491122334455",
+      resumen: "un resumen",
+      resumido_hasta: 10,
+    });
+  });
+
+  it("escalateConversation pega al endpoint de escalar con el resumen (tarea 41)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({ id: 1, estado: "requiere_atencion", resumen: "El cliente pide hablar con una persona.", mensajes: [] }),
+    );
+
+    await client.escalateConversation("+5491122334455", "El cliente pide hablar con una persona.");
+
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/conversations/mine/escalar/");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      customer_phone: "+5491122334455",
+      resumen: "El cliente pide hablar con una persona.",
+    });
+  });
 });
