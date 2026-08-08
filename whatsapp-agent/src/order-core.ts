@@ -59,6 +59,20 @@ export interface KnowledgeChunk {
   contenido: string;
 }
 
+export interface ConversationMessage {
+  id: number;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
+export interface ConversationState {
+  id: number;
+  estado: string;
+  resumen: string;
+  mensajes: ConversationMessage[];
+}
+
 export interface OrderCoreClient {
   getCatalog(): Promise<Product[]>;
   getTenantInfo(): Promise<TenantInfo>;
@@ -70,6 +84,9 @@ export interface OrderCoreClient {
   getOrdersByCustomerPhone(telefono: string): Promise<Order[]>;
   cancelOrder(id: number, customerPhone: string): Promise<Order>;
   searchKnowledge(query: string): Promise<KnowledgeChunk[]>;
+  getConversation(customerPhone: string): Promise<ConversationState>;
+  appendMessage(customerPhone: string, role: "user" | "assistant", content: string): Promise<ConversationState>;
+  updateConversationSummary(customerPhone: string, resumen: string, resumidoHasta: number): Promise<ConversationState>;
 }
 
 /** Habla con el Order Core autenticado como bot (tarea 25, header
@@ -124,6 +141,18 @@ export function createOrderCoreClient(config: OrderCoreConfig): OrderCoreClient 
         body: JSON.stringify({ customer_phone: customerPhone }),
       }),
     searchKnowledge: (query) => request<KnowledgeChunk[]>(`/api/knowledge/search/?query=${encodeURIComponent(query)}`),
+    getConversation: (customerPhone) =>
+      request<ConversationState>(`/api/conversations/mine/?customer_phone=${encodeURIComponent(customerPhone)}`),
+    appendMessage: (customerPhone, role, content) =>
+      request<ConversationState>("/api/conversations/mine/messages/", {
+        method: "POST",
+        body: JSON.stringify({ customer_phone: customerPhone, role, content }),
+      }),
+    updateConversationSummary: (customerPhone, resumen, resumidoHasta) =>
+      request<ConversationState>("/api/conversations/mine/", {
+        method: "PATCH",
+        body: JSON.stringify({ customer_phone: customerPhone, resumen, resumido_hasta: resumidoHasta }),
+      }),
   };
 }
 

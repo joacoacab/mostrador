@@ -13,9 +13,9 @@ import { runWorker } from "./worker.js";
 async function handleMessage(message: IncomingMessage): Promise<string> {
   try {
     const orderCore = getOrderCoreClient();
-    const history = await getHistory(message.from);
+    const history = await getHistory(orderCore, message.from);
     const reply = await respond(message.text, { orderCore, customerPhone: message.from }, { history });
-    await appendTurn(message.from, message.text, reply);
+    await appendTurn(orderCore, message.from, message.text, reply);
     return reply;
   } catch (err) {
     console.error("Error en el agente", err);

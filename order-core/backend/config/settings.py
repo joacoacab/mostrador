@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'catalog',
     'orders',
     'knowledge',
+    'conversations',
 ]
 
 MIDDLEWARE = [
@@ -121,6 +122,11 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'Order Core: catálogo, clientes y pedidos, multi-tenant por tenant_id.',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
+    # Conversation.estado (tarea 40) colisiona de nombre con Order.estado --
+    # mismo campo "estado" en dos modelos, choices distintos.
+    'ENUM_NAME_OVERRIDES': {
+        'ConversationEstadoEnum': 'conversations.models.Conversation.ESTADO_CHOICES',
+    },
 }
 
 # Orígenes del frontend permitidos a llamar la API (dev: el puerto de
