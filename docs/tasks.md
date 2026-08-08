@@ -278,13 +278,41 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
   Mensaje genérico al cliente + log estructurado simple cuando el agente no puede resolver algo (sin UI en el panel, eso es Fase 3).
   Hecho cuando: un mensaje fuera de alcance dispara el fallback y queda registrado en los logs del worker.
 
-### Etapa 11 — Deploy
+### Etapa 11 — Capa de IA (ampliación, spec adicional del 2026-08-08)
 
-- [ ] **36. Deploy de `whatsapp-agent`**
+Ver `docs/plan.md` sección "Ampliación -- Capa de IA" para el contexto completo de esta ampliación y las decisiones de implementación (dónde viven las tablas nuevas, embeddings, ventana de 24hs). Todo lo de acá abajo corre sin depender de Meta -- solo las tareas 30 (ya existente) y 43 siguen bloqueadas.
+
+- [ ] **36. Tool `cancel_order`**
+  Agrega la 4ta tool del Tool Engine (spec de la capa de IA): cancelar un pedido propio. Mismo patrón que las tools existentes (tarea 33) -- llama al Order Core, no inventa el resultado.
+  Hecho cuando: pedirle al bot cancelar un pedido propio lo cancela de verdad en el Order Core (queda en estado cancelado) y el bot lo confirma; no puede cancelar un pedido de otro cliente.
+
+- [ ] **37. Costo de IA logueado por conversación**
+  Loguear tokens de entrada/salida (y costo estimado) de cada llamado a Claude, asociado al teléfono/conversación.
+  Hecho cuando: después de una conversación de prueba, se puede ver en los logs del worker cuánto costó en tokens/USD.
+
+- [ ] **38. LLM Router (clasificador + modelo principal)**
+  Separar en dos llamados: uno barato clasifica la intención (consulta simple vs. algo que necesita razonar/tools) antes de decidir si hace falta el modelo principal -- ej. horarios/ubicación no deberían disparar el loop completo del agente.
+  Hecho cuando: una consulta simple (ej. "a qué hora abren") se resuelve sin pasar por el loop completo de tool-use del modelo principal, verificado con el log de la tarea 37 (menos tokens que antes para ese tipo de consulta).
+
+- [ ] **39. RAG Engine (pgvector + `knowledge_chunks`)**
+  Extensión pgvector en el Postgres del Order Core, modelo `knowledge_chunks` (tenant-scoped) + pipeline de embeddings para contenido estático (políticas, FAQ largo). Antes hace falta un lugar para cargar ese contenido (no existe hoy, solo horarios/ubicación/medios de pago cortos de la tarea 24) -- carga manual por admin de Django, sin panel todavía.
+  Hecho cuando: una pregunta sobre contenido estático cargado (ej. una política del local) se responde con datos reales recuperados por RAG, no alucinados ni por conocimiento general del modelo.
+
+- [ ] **40. Memoria en Postgres con resumen + estado**
+  Reemplaza la memoria en Redis de la tarea 34 por `conversations` + `messages` en el Order Core (mismo Postgres, tenant-scoped), con resumen corriente (para no reenviar todo el historial en cada turno) y estado de la conversación (ej. esperando confirmación de pedido).
+  Hecho cuando: una conversación de prueba larga (más mensajes de los que entrarían enteros en el contexto) sigue teniendo sentido gracias al resumen, y el estado se puede consultar en el Order Core.
+
+- [ ] **41. Escalamiento a humano completo**
+  Reemplaza/extiende el fallback simple de la tarea 35: cuando el bot no puede resolver algo (baja confianza, fuera de alcance, cliente molesto), genera un resumen corto de la conversación (no el chat entero), marca la conversación con estado "requiere atención" visible en el panel/kanban existente, y le avisa al cliente que fue derivado sin cortar la conversación de forma abrupta.
+  Hecho cuando: un mensaje fuera de alcance dispara la escalación, aparece en el panel con un resumen (no el historial crudo), y el cliente recibe el aviso de derivación.
+
+### Etapa 12 — Deploy
+
+- [ ] **42. Deploy de `whatsapp-agent`**
   Containers (agent + worker + redis) + ruta en Traefik para el webhook, mismo runner self-hosted que ya existe para este repo. Arranca con el adapter WAHA activo.
   Hecho cuando: el webhook es alcanzable por HTTPS en un dominio/subdominio propio, y un pedido real se puede crear de punta a punta hablándole al bot por WhatsApp (número propio, vía WAHA).
 
-- [ ] **37. Migrar a Meta Cloud API en producción** 🔒
+- [ ] **43. Migrar a Meta Cloud API en producción** 🔒
   Cambiar el adapter activo de WAHA a Meta por variable de entorno, sin tocar código.
   Hecho cuando: un mensaje real de WhatsApp (número de Business verificado) dispara todo el flujo y el cliente recibe una respuesta coherente, incluyendo al menos un pedido creado de punta a punta. Bloqueada hasta tener la cuenta de Meta Business verificada.
 
@@ -294,4 +322,6 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
 Fase 1: arrancamos por la tarea 1, una por vez. Después de validar las tareas de la Etapa 2 (4 a 7d) a mano, se soltaron varias tareas seguidas de una.
 
-Fase 2: mismo criterio -- de a una, empezando por la tarea 24. Casi todo se puede construir y probar en real contra WAHA (número propio) sin esperar nada de Meta -- las únicas tareas realmente bloqueadas (🔒, tareas 30 y 37) son las que dependen de tener la cuenta de Meta Business verificada.
+Fase 2: mismo criterio -- de a una, empezando por la tarea 24. Casi todo se puede construir y probar en real contra WAHA (número propio) sin esperar nada de Meta -- las únicas tareas realmente bloqueadas (🔒, tareas 30 y 43) son las que dependen de tener la cuenta de Meta Business verificada.
+
+Ampliación del 2026-08-08: se sumaron las tareas 36-41 (capa de IA -- Tool Engine completo, Router de 2 niveles, RAG, memoria en Postgres, escalamiento con panel), a pedido explícito del usuario tras revisar una spec aparte. Deploy y migración a Meta se renumeraron de 36/37 a 42/43 para que las tareas nuevas queden antes en el orden de ejecución (tiene sentido tener las features completas antes de deployar, no al revés).

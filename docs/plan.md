@@ -45,3 +45,19 @@ El Order Core (Fase 1) ya expone todo lo que el bot necesita *leer/escribir* en 
 ## Siguiente paso
 
 Con las 4 decisiones ya confirmadas, el siguiente paso es convertir este plan en `docs/tasks.md` (checklist ejecutable, una tarea por commit). Lo hago ahora salvo que quieras ajustar algo del desglose primero.
+
+---
+
+## Ampliación — Capa de IA (LLM Router + RAG + Tool Engine)
+
+El usuario trajo una spec aparte para una "capa de IA" más completa (Router de 2 niveles, RAG con pgvector, memoria conversacional en Postgres con resumen/estado, escalamiento a humano con resumen + kanban, ventana de 24hs de Meta, costo logueado). Comparada con lo ya construido (tareas 24-34): el Tool Engine y la autenticación del bot ya existen en espíritu; memoria hoy es más simple (Redis, últimos 10 turnos, sin resumen ni estado); no hay Router de 2 niveles (un solo llamado a Haiku hace todo); no hay RAG; el escalamiento es el fallback simple de la tarea 35, sin panel.
+
+**Decisión (2026-08-08)**: se suma a Fase 2 todo lo que **no dependa de credenciales de Meta** -- o sea, todo excepto las tareas 30 y 37 (adapter Meta / migración a producción), que siguen bloqueadas. Se descarta la lectura inicial de "esto es Fase 3": la única pieza que realmente coincidía con lo ya deferido a Fase 3 (escalamiento con panel) se suma también, a pedido explícito.
+
+**Decisiones de implementación (para no dejarlas implícitas):**
+- Las tablas nuevas (`conversations`, `messages`, `knowledge_chunks`, `escalations`) viven en el **Order Core** (mismo Postgres, mismo patrón de scoping por tenant que todo lo demás), no en una base aparte para `whatsapp-agent` -- consistente con "el bot habla con el Order Core por HTTP", no con una base propia. Se exponen vía `BotTokenAuthentication` (tarea 25), mismo criterio que catálogo/pedidos.
+- Embeddings: dependencia externa nueva (proveedor de embeddings + su propia API key), a resolver en la tarea de RAG -- no asumir cuál todavía.
+- Contenido estático para indexar (políticas, FAQ largo): hoy `Tenant` solo tiene horarios/ubicación/medios de pago (campos cortos, tarea 24). Antes de armar RAG hace falta un lugar para cargar contenido más largo -- se resuelve en la tarea de RAG, carga manual (admin de Django), sin panel de carga (eso sí queda para más adelante).
+- Ventana de 24hs de Meta: como hoy estamos en WAHA (sin restricción de template), esta pieza queda como diseño/campo preparado (guardar `último_mensaje_at` por conversación) pero sin lógica de bloqueo real -- se activa de verdad recién en la tarea 37 (Meta), que sigue bloqueada.
+
+Desglose convertido a tareas nuevas en `docs/tasks.md`: la 35 (fallback genérico) queda igual; se suman las tareas 36-41; deploy y migración a Meta se renumeran de 36/37 a 42/43 (no se había ejecutado ninguna de las dos todavía, no hay nada que romper).
