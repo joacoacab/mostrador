@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { MessageParam, Tool, ToolResultBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
-import { estimateCostUsd } from "./cost.js";
+import { logUsage } from "./cost.js";
 import type { OrderCoreClient } from "./order-core.js";
 
 const MODEL = process.env.ANTHROPIC_MODEL ?? "claude-haiku-4-5";
@@ -138,14 +138,6 @@ export interface RunAgentOptions {
   history?: MessageParam[];
 }
 
-function logCost(customerPhone: string, inputTokens: number, outputTokens: number): void {
-  const costUsd = estimateCostUsd(MODEL, inputTokens, outputTokens);
-  const costLabel = costUsd === null ? "desconocido (sin precio cargado para este modelo)" : `$${costUsd.toFixed(6)}`;
-  console.log(
-    `[costo-ia] telefono=${customerPhone} modelo=${MODEL} input_tokens=${inputTokens} output_tokens=${outputTokens} costo_usd=${costLabel}`,
-  );
-}
-
 export async function runAgent(text: string, ctx: AgentContext, options: RunAgentOptions = {}): Promise<string> {
   const client = options.client ?? new Anthropic();
   const messages: MessageParam[] = [...(options.history ?? []), { role: "user", content: text }];
@@ -193,6 +185,6 @@ export async function runAgent(text: string, ctx: AgentContext, options: RunAgen
     messages.push({ role: "user", content: toolResults });
   }
 
-  logCost(ctx.customerPhone, inputTokens, outputTokens);
+  logUsage(ctx.customerPhone, "principal", MODEL, inputTokens, outputTokens);
   return reply;
 }

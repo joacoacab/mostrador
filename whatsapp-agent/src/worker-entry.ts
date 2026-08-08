@@ -1,10 +1,10 @@
 import "dotenv/config";
 
-import { runAgent } from "./agent.js";
 import { debounce } from "./debounce.js";
 import { appendTurn, getHistory } from "./memory.js";
 import { getOrderCoreClient } from "./order-core.js";
 import type { IncomingMessage } from "./providers/types.js";
+import { respond } from "./router.js";
 import { runWorker } from "./worker.js";
 
 /** El fallback genérico "de verdad" (mensaje + log estructurado) es la
@@ -14,7 +14,7 @@ async function handleMessage(message: IncomingMessage): Promise<string> {
   try {
     const orderCore = getOrderCoreClient();
     const history = await getHistory(message.from);
-    const reply = await runAgent(message.text, { orderCore, customerPhone: message.from }, { history });
+    const reply = await respond(message.text, { orderCore, customerPhone: message.from }, { history });
     await appendTurn(message.from, message.text, reply);
     return reply;
   } catch (err) {

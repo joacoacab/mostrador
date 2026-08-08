@@ -297,9 +297,12 @@ Ver `docs/plan.md` sección "Ampliación -- Capa de IA" para el contexto complet
   Hecho cuando: después de una conversación de prueba, se puede ver en los logs del worker cuánto costó en tokens/USD.
   Verificado con una conversación real de 2 turnos: `[costo-ia] telefono=smoke-test-37 modelo=claude-haiku-4-5 input_tokens=3461 output_tokens=53 costo_usd=$0.003726`. 51 tests (2 nuevos de `cost.ts` + 1 de logging en `agent.test.ts`), lint y typecheck en verde.
 
-- [ ] **38. LLM Router (clasificador + modelo principal)**
+- [x] **38. LLM Router (clasificador + modelo principal)**
   Separar en dos llamados: uno barato clasifica la intención (consulta simple vs. algo que necesita razonar/tools) antes de decidir si hace falta el modelo principal -- ej. horarios/ubicación no deberían disparar el loop completo del agente.
+  `src/router.ts`: `respond()` es el nuevo punto de entrada del worker (reemplaza a `runAgent` en `worker-entry.ts`). Primero clasifica el mensaje con un llamado chico (sin tools, `max_tokens: 10`, mismo modelo) en `info_local` vs `otro`. Si es `info_local`, responde directo con los datos del tenant (`getTenantInfo`) sin tocar el modelo principal. Si es `otro` (o la respuesta del clasificador es ambigua -- "ante la duda, otro" es la red de seguridad), cae en `runAgent` como antes. El clasificador no ve el historial de la conversación, solo el mensaje actual -- decisión de diseño simple, documentada en el código, aceptando que algún caso con contexto ambiguo caiga en "otro" (nunca al revés, por el default conservador del prompt).
+  Costo (tarea 37) ahora loguea `etapa=router` o `etapa=principal` para poder comparar.
   Hecho cuando: una consulta simple (ej. "a qué hora abren") se resuelve sin pasar por el loop completo de tool-use del modelo principal, verificado con el log de la tarea 37 (menos tokens que antes para ese tipo de consulta).
+  Verificado en vivo, misma consulta ("a qué hora abren?"): sin router, 3497 tokens de entrada (loop completo con las 6 tools); con router, 176 tokens de entrada (solo el clasificador) -- ~95% menos. Un pedido real ("quiero 2 docenas de chipa") sigue cayendo correctamente en el loop completo (clasificador dice "otro", se ve `etapa=router` seguido de `etapa=principal` en el log). 54 tests (3 nuevos de `router.test.ts`), lint y typecheck en verde.
 
 - [ ] **39. RAG Engine (pgvector + `knowledge_chunks`)**
   Extensión pgvector en el Postgres del Order Core, modelo `knowledge_chunks` (tenant-scoped) + pipeline de embeddings para contenido estático (políticas, FAQ largo). Antes hace falta un lugar para cargar ese contenido (no existe hoy, solo horarios/ubicación/medios de pago cortos de la tarea 24) -- carga manual por admin de Django, sin panel todavía.

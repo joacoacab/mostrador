@@ -15,3 +15,14 @@ export function estimateCostUsd(model: string, inputTokens: number, outputTokens
   if (!pricing) return null;
   return (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
 }
+
+/** Logea el costo de un llamado (o de todos los turnos de un llamado con
+ * tools) a Claude, asociado al teléfono del cliente. `etapa` distingue el
+ * router (tarea 38, barato) del modelo principal, para poder comparar. */
+export function logUsage(customerPhone: string, etapa: string, model: string, inputTokens: number, outputTokens: number): void {
+  const costUsd = estimateCostUsd(model, inputTokens, outputTokens);
+  const costLabel = costUsd === null ? "desconocido (sin precio cargado para este modelo)" : `$${costUsd.toFixed(6)}`;
+  console.log(
+    `[costo-ia] telefono=${customerPhone} etapa=${etapa} modelo=${model} input_tokens=${inputTokens} output_tokens=${outputTokens} costo_usd=${costLabel}`,
+  );
+}
