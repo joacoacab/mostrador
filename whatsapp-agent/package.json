@@ -8,8 +8,10 @@
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
+    "dev:worker": "tsx watch src/worker-entry.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
+    "start:worker": "node dist/worker-entry.js",
     "lint": "eslint .",
     "test": "vitest run"
   },

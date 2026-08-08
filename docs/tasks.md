@@ -232,9 +232,15 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
   `GET` de verificación (hub.challenge) + `POST` de recepción + envío vía Send Message API, mismo contrato que el adapter WAHA.
   Hecho cuando: con credenciales reales de Meta, la verificación del webhook responde lo que Meta espera y un mensaje real por Meta llega y se puede responder. Bloqueada hasta tener la cuenta de Meta Business verificada.
 
-- [ ] **31. Worker**
+- [x] **31. Worker**
   Consume la cola, orquesta el resto de los pasos (cliente Order Core, agente, memoria, envío de respuesta) sin saber qué adapter está activo.
   Hecho cuando: un mensaje encolado (por cualquiera de los dos adapters) dispara el worker y se puede ver el flujo completo corriendo.
+
+  `src/worker.ts`: `processNextMessage(handler, opciones)` -- saca un mensaje de la cola, lo pasa a un `handler` inyectado y manda la respuesta por `getActiveProvider().sendMessage()` (no sabe si es WAHA o Meta). `runWorker` es el loop infinito: un error del handler o un mensaje mal formado se loguea y sigue, no tira abajo el proceso. `src/worker-entry.ts` es el entrypoint (`npm run dev:worker` / `start:worker`), separado del servidor HTTP a propósito (spec/plan: el webhook responde rápido y encola, el worker procesa aparte) -- usa un `handler` placeholder ("recibimos tu mensaje...") hasta que exista el agente real (tarea 33), el cliente del Order Core (tarea 32) y la memoria (tarea 34).
+
+  De paso, un bug real: `dequeue` hace `JSON.parse` sobre lo que sea que se encoló, así que `IncomingMessage.timestamp` volvía como string, no `Date` (el tipo mentía). `processNextMessage` lo reconstruye (`new Date(raw.timestamp)`) antes de pasarlo al handler.
+
+  Verificado de punta a punta con mensajes reales: webhook → cola de Redis → worker → respuesta real recibida en el teléfono, con el servidor HTTP y el worker corriendo como dos procesos separados en paralelo.
 
 - [ ] **32. Cliente HTTP hacia el Order Core**
   Usa el `BotToken` de la tarea 25.

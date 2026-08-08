@@ -14,6 +14,15 @@ contra esa interfaz, no contra WAHA o Meta directamente. El adapter activo
 se elige por la variable de entorno `WHATSAPP_PROVIDER` (`src/providers/registry.ts`).
 Adapter WAHA implementado (tarea 29); Meta todavía no (tarea 30).
 
+`src/worker.ts` es el otro proceso (tarea 31): consume `whatsapp:incoming-messages`
+(la cola de Redis donde el webhook deja los mensajes), llama a un `handler`
+y manda la respuesta por el proveedor activo -- no sabe si el mensaje vino
+de WAHA o de Meta. Corre separado del servidor HTTP a propósito (ver
+`docs/plan.md`, decisión 3: el webhook responde rápido y encola, el worker
+procesa aparte). El `handler` de `src/worker-entry.ts` es un placeholder
+("recibimos tu mensaje...") hasta que llegue el agente de Claude real
+(tarea 33).
+
 ## Desarrollo local
 
 ```bash
@@ -21,7 +30,8 @@ cp .env.example .env          # ajustar valores si hace falta
 docker compose up -d          # levanta Redis + WAHA
 
 npm install
-npm run dev
+npm run dev         # servidor HTTP (webhook), puerto 3000
+npm run dev:worker  # worker, en otra terminal
 ```
 
 ### Parear WhatsApp con WAHA (dev, número de prueba)
