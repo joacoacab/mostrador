@@ -395,6 +395,54 @@ class OrderStatusAPITests(TestCase):
         self.assertEqual(self.order_b.estado, Order.ESTADO_PENDIENTE)
 
 
+class OrderCancelAPITests(TestCase):
+    """Endpoint `cancel` (tarea 36) desde el panel -- el chequeo de
+    pertenencia (`customer_phone`) solo aplica al bot, ver
+    tenants/tests.py::BotTokenAuthenticationTests para esos casos."""
+
+    def setUp(self):
+        self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-cancel", plan="basico")
+        self.tenant_b = Tenant.objects.create(nombre="Tenant B", slug="tenant-b-cancel", plan="basico")
+        self.user_a = User.objects.create_user(
+            username="user-a-cancel", password="testpass123", tenant=self.tenant_a,
+            rol=User.ROL_ADMIN, nombre="User A",
+        )
+        self.customer_a = Customer.all_objects.create(
+            tenant=self.tenant_a, telefono="+5491111111", nombre="Cliente A"
+        )
+        self.customer_b = Customer.all_objects.create(
+            tenant=self.tenant_b, telefono="+5492222222", nombre="Cliente B"
+        )
+        self.order_a = Order.all_objects.create(
+            tenant=self.tenant_a, customer=self.customer_a, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_PENDIENTE,
+        )
+        self.order_b = Order.all_objects.create(
+            tenant=self.tenant_b, customer=self.customer_b, canal=Order.CANAL_MANUAL,
+            estado=Order.ESTADO_PENDIENTE,
+        )
+        self.client = APIClient()
+        authenticate_as(self.client, self.user_a)
+
+    def test_cancela_un_pedido_propio(self):
+        response = self.client.post(f"/api/orders/{self.order_a.id}/cancel/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["estado"], Order.ESTADO_CANCELADO)
+        event = self.order_a.events.get()
+        self.assertEqual(event.estado_nuevo, Order.ESTADO_CANCELADO)
+        self.assertEqual(event.actor, str(self.user_a.id))
+
+    def test_no_puede_cancelar_un_pedido_ya_terminal(self):
+        self.order_a.estado = Order.ESTADO_ENTREGADO
+        self.order_a.save(update_fields=["estado"])
+        response = self.client.post(f"/api/orders/{self.order_a.id}/cancel/")
+        self.assertEqual(response.status_code, 400)
+
+    def test_no_puede_cancelar_pedido_de_otro_tenant(self):
+        response = self.client.post(f"/api/orders/{self.order_b.id}/cancel/")
+        self.assertEqual(response.status_code, 404)
+
+
 class CustomerAPITests(TestCase):
     def setUp(self):
         self.tenant_a = Tenant.objects.create(nombre="Tenant A", slug="tenant-a-cust", plan="basico")

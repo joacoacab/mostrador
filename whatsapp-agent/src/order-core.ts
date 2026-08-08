@@ -63,11 +63,13 @@ export interface OrderCoreClient {
   createOrder(input: CreateOrderInput): Promise<Order>;
   getOrder(id: number): Promise<Order>;
   getOrdersByCustomerPhone(telefono: string): Promise<Order[]>;
+  cancelOrder(id: number, customerPhone: string): Promise<Order>;
 }
 
 /** Habla con el Order Core autenticado como bot (tarea 25, header
- * `Authorization: BotToken <token>`) -- el bot puede leer catálogo/info y
- * crear/consultar pedidos, pero no cambiarles el estado (eso no es una tool
+ * `Authorization: BotToken <token>`) -- el bot puede leer catálogo/info,
+ * crear/consultar pedidos, y cancelar (tarea 36) el pedido de quien está
+ * escribiendo -- no puede cambiar el estado a nada más (eso no es una tool
  * de la spec 4.1). */
 export function createOrderCoreClient(config: OrderCoreConfig): OrderCoreClient {
   async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -110,6 +112,11 @@ export function createOrderCoreClient(config: OrderCoreConfig): OrderCoreClient 
     getOrder: (id) => request<Order>(`/api/orders/${id}/`),
     getOrdersByCustomerPhone: (telefono) =>
       request<Order[]>(`/api/orders/?customer_phone=${encodeURIComponent(telefono)}`),
+    cancelOrder: (id, customerPhone) =>
+      request<Order>(`/api/orders/${id}/cancel/`, {
+        method: "POST",
+        body: JSON.stringify({ customer_phone: customerPhone }),
+      }),
   };
 }
 

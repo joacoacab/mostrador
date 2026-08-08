@@ -12,9 +12,13 @@ const SYSTEM_PROMPT = `Sos el asistente de WhatsApp de un comercio. SOLO podés 
 - consultar el estado de sus pedidos
 - responder preguntas sobre horarios, ubicación o medios de pago
 
+También podés cancelar un pedido si el cliente lo pide.
+
+CRÍTICO: crear, cancelar o consultar un pedido son acciones reales sobre el comercio del cliente -- nunca digas que ya hiciste algo (creaste un pedido, lo cancelaste, etc.) sin haber llamado a la tool correspondiente en esta misma respuesta y haber recibido su resultado. No asumas el resultado de una acción por lo que ya se dijo antes en la conversación, aunque parezca obvio -- cada pedido de crear/cancelar/consultar necesita su propio llamado a la tool, siempre, sin excepción. Confirmarle algo al cliente que en realidad no pasó es peor que no responder.
+
 Respondé siempre en español, corto y claro, como por WhatsApp -- sin markdown. No inventes productos, precios ni información que no salga de las tools.
 
-No sos un asistente de propósito general: no respondas preguntas de cultura general, no charles de otros temas (películas, series, clima, noticias, etc.), ni uses tu conocimiento general para nada que no sea el comercio, aunque el mensaje se parezca por la palabra a alguna de tus cuatro tareas (ej. "capítulo" no es "catálogo"). Si el mensaje del cliente no es claramente sobre pedidos, catálogo, estado de un pedido o info del local, no intentes adivinar qué quiso decir ni respondas con otra cosa: decí que no entendiste y preguntá si quiere ver el catálogo, hacer un pedido, o consultar el estado de uno. Si de verdad no podés resolver lo que pide (algo fuera de estas cuatro cosas), decí que no podés ayudar con eso y que un operador del local se va a comunicar.`;
+No sos un asistente de propósito general: no respondas preguntas de cultura general, no charles de otros temas (películas, series, clima, noticias, etc.), ni uses tu conocimiento general para nada que no sea el comercio, aunque el mensaje se parezca por la palabra a alguna de tus tareas (ej. "capítulo" no es "catálogo"). Si el mensaje del cliente no es claramente sobre pedidos, catálogo, estado/cancelación de un pedido o info del local, no intentes adivinar qué quiso decir ni respondas con otra cosa: decí que no entendiste y preguntá qué necesita. Si de verdad no podés resolver lo que pide (algo fuera de esto), decí que no podés ayudar con eso y que un operador del local se va a comunicar.`;
 
 const TOOLS: Tool[] = [
   {
@@ -56,6 +60,24 @@ const TOOLS: Tool[] = [
     description: "Devuelve horarios, ubicación y medios de pago del comercio.",
     input_schema: { type: "object", properties: {} },
   },
+  {
+    name: "cancelar_pedido",
+    description:
+      "Cancela un pedido del cliente que está escribiendo. Usar solo con un id que salió de consultar_pedidos -- no se puede cancelar un pedido ajeno ni uno que ya está en un estado terminal (entregado/cancelado/etc.).",
+    input_schema: {
+      type: "object",
+      properties: {
+        order_id: { type: "integer", description: "Id del pedido a cancelar (de consultar_pedidos)." },
+      },
+      required: ["order_id"],
+    },
+  },
+  {
+    name: "sin_accion",
+    description:
+      "Usar cuando el mensaje del cliente no pide ninguna acción sobre el comercio (saludos, agradecimientos, charla que no encaja en ninguna otra tool). No hace nada -- después de llamarla podés responder libremente en texto.",
+    input_schema: { type: "object", properties: {} },
+  },
 ];
 
 export interface AgentContext {
@@ -91,6 +113,13 @@ async function executeTool(name: string, input: unknown, ctx: AgentContext): Pro
     case "info_local": {
       return JSON.stringify(await ctx.orderCore.getTenantInfo());
     }
+    case "cancelar_pedido": {
+      const { order_id: orderId } = input as { order_id: number };
+      const order = await ctx.orderCore.cancelOrder(orderId, ctx.customerPhone);
+      return JSON.stringify({ id: order.id, estado: order.estado });
+    }
+    case "sin_accion":
+      return "";
     default:
       throw new Error(`Tool desconocida: ${name}`);
   }
@@ -117,6 +146,7 @@ export async function runAgent(text: string, ctx: AgentContext, options: RunAgen
       max_tokens: 1024,
       system: SYSTEM_PROMPT,
       tools: TOOLS,
+      tool_choice: turn === 0 ? { type: "any" } : { type: "auto" },
       messages,
     });
 

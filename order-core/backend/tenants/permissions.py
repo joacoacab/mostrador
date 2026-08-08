@@ -19,11 +19,17 @@ class DenyDeviceWrites(BasePermission):
 
 class DenyBotStatusChanges(BasePermission):
     """El bot (tarea 25) puede leer catálogo/pedidos y crear pedidos,
-    pero cambiarles el estado no está entre sus tools (spec 4.1) --
-    eso lo hace un humano desde el panel. Chequea por `action`, no por
-    método: a diferencia de la pantalla, el bot SÍ puede hacer POST
-    (crear pedido), así que un chequeo genérico de "solo lectura" no
-    sirve acá.
+    pero cambiar el estado libremente (`status_transition`) no está
+    entre sus tools (spec 4.1) -- eso lo hace un humano desde el panel.
+    Chequea por `action`, no por método: a diferencia de la pantalla,
+    el bot SÍ puede hacer POST (crear pedido), así que un chequeo
+    genérico de "solo lectura" no sirve acá.
+
+    La única excepción a propósito es `cancel` (tarea 36): una
+    transición de estado bien acotada (siempre a cancelado, con el
+    chequeo de que el pedido es del que escribe) que sí es una tool
+    del bot -- por eso no está en la lista de acciones bloqueadas acá,
+    esa vista valida la pertenencia por su cuenta.
     """
 
     def has_permission(self, request, view):

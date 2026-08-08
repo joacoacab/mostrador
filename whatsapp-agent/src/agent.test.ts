@@ -46,12 +46,22 @@ describe("runAgent", () => {
     customerPhone: "5491122334455@c.us",
   };
 
-  it("responde directo si Claude no pide ninguna tool", async () => {
-    const client = fakeClient(textMessage("Hola! ¿En qué te puedo ayudar?"));
+  it("responde directo si Claude no pide ninguna tool real (via sin_accion)", async () => {
+    const client = fakeClient(toolUseMessage("sin_accion", {}), textMessage("Hola! ¿En qué te puedo ayudar?"));
 
     const reply = await runAgent("hola", ctx, { client });
 
     expect(reply).toBe("Hola! ¿En qué te puedo ayudar?");
+  });
+
+  it("fuerza tool_choice=any en el primer turno para que no pueda confirmar una acción sin pasar por una tool (tarea 36)", async () => {
+    const client = fakeClient(toolUseMessage("sin_accion", {}), textMessage("Listo."));
+
+    await runAgent("cancelame el pedido", ctx, { client });
+
+    const create = client.messages.create as ReturnType<typeof vi.fn>;
+    expect(create.mock.calls[0][0].tool_choice).toEqual({ type: "any" });
+    expect(create.mock.calls[1][0].tool_choice).toEqual({ type: "auto" });
   });
 
   it("ejecuta ver_catalogo contra el Order Core y arma la respuesta final", async () => {
@@ -145,6 +155,35 @@ describe("runAgent", () => {
     const reply = await runAgent("hola", ctx, { client });
 
     expect(reply).toContain("no pude resolver");
+  });
+
+  it("ejecuta cancelar_pedido con el order_id y el teléfono del que escribe (tarea 36)", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({
+        id: 10,
+        customer: 1,
+        customer_nombre: "Cliente A",
+        customer_telefono: ctx.customerPhone,
+        canal: "whatsapp",
+        estado: "cancelado",
+        notas: "",
+        created_at: "x",
+        updated_at: "x",
+        items: [],
+      }),
+    );
+
+    const client = fakeClient(
+      toolUseMessage("cancelar_pedido", { order_id: 10 }),
+      textMessage("Listo, cancelé tu pedido."),
+    );
+
+    const reply = await runAgent("cancelame el pedido 10", ctx, { client });
+
+    expect(reply).toBe("Listo, cancelé tu pedido.");
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/orders/10/cancel/");
+    expect(JSON.parse(init.body as string)).toEqual({ customer_phone: ctx.customerPhone });
   });
 
   it("manda el history (memoria corta, tarea 34) antes del mensaje nuevo", async () => {

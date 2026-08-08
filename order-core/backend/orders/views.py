@@ -1,17 +1,22 @@
 from django.db import IntegrityError
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from accounts.authentication import TenantAwareJWTAuthentication
-from tenants.authentication import BotTokenAuthentication, DeviceTokenAuthentication
+from tenants.authentication import (
+    AnonymousBotUser,
+    BotTokenAuthentication,
+    DeviceTokenAuthentication,
+)
 from tenants.permissions import DenyBotStatusChanges, DenyDeviceWrites
 
 from .models import Customer, Order
 from .serializers import (
     CustomerSerializer,
+    OrderCancelSerializer,
     OrderCreateSerializer,
     OrderSerializer,
     OrderStatusSerializer,
@@ -131,6 +136,33 @@ class OrderViewSet(
                 serializer.validated_data["estado"],
                 actor=str(request.user.id),
             )
+        except InvalidTransition as exc:
+            raise ValidationError({"estado": str(exc)}) from exc
+
+        return Response(OrderSerializer(order, context=self.get_serializer_context()).data)
+
+    @action(detail=True, methods=["post"], url_path="cancel")
+    def cancel(self, request, pk=None):
+        # Tool `cancel_order` del bot (tarea 36, spec de la capa de IA).
+        # No pasa por DenyBotStatusChanges (esa solo bloquea la acción
+        # `status_transition`) -- acá el chequeo es más estricto en otro
+        # sentido: el bot solo puede cancelar el pedido si el teléfono
+        # que manda coincide con el dueño del pedido, para que un error
+        # del agente (o un intento de prompt injection) no pueda
+        # cancelar el pedido de otro cliente del mismo tenant.
+        order = self.get_object()
+        if isinstance(request.user, AnonymousBotUser):
+            serializer = OrderCancelSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            customer_phone = serializer.validated_data.get("customer_phone")
+            if not customer_phone or order.customer.telefono != customer_phone:
+                raise PermissionDenied("No podés cancelar un pedido que no es tuyo.")
+            actor = "bot"
+        else:
+            actor = str(request.user.id)
+
+        try:
+            transition_order(order, Order.ESTADO_CANCELADO, actor=actor)
         except InvalidTransition as exc:
             raise ValidationError({"estado": str(exc)}) from exc
 

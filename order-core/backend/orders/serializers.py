@@ -88,3 +88,10 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
 class OrderStatusSerializer(serializers.Serializer):
     estado = serializers.ChoiceField(choices=Order.ESTADO_CHOICES)
+
+
+class OrderCancelSerializer(serializers.Serializer):
+    # Solo lo manda el bot (tarea 36) -- es el chequeo de que el pedido
+    # que quiere cancelar es el suyo. Un humano logueado desde el panel
+    # no lo necesita, ya está limitado por el scoping de tenant.
+    customer_phone = serializers.CharField(required=False, allow_blank=False)

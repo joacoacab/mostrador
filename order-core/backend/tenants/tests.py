@@ -265,6 +265,30 @@ class BotTokenAuthenticationTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
+    def test_puede_cancelar_un_pedido_propio(self):
+        response = self.client.post(
+            f"/api/orders/{self.order_a.id}/cancel/", {"customer_phone": self.customer_a.telefono}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["estado"], Order.ESTADO_CANCELADO)
+
+    def test_no_puede_cancelar_sin_mandar_customer_phone(self):
+        response = self.client.post(f"/api/orders/{self.order_a.id}/cancel/")
+        self.assertEqual(response.status_code, 403)
+        self.order_a.refresh_from_db()
+        self.assertEqual(self.order_a.estado, Order.ESTADO_PENDIENTE)
+
+    def test_no_puede_cancelar_pedido_de_otro_cliente(self):
+        otro_cliente = Customer.all_objects.create(tenant=self.tenant_a, telefono="+5493333333", nombre="Otro")
+        otro_pedido = Order.all_objects.create(tenant=self.tenant_a, customer=otro_cliente, canal=Order.CANAL_WHATSAPP)
+
+        response = self.client.post(
+            f"/api/orders/{otro_pedido.id}/cancel/", {"customer_phone": self.customer_a.telefono}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        otro_pedido.refresh_from_db()
+        self.assertNotEqual(otro_pedido.estado, Order.ESTADO_CANCELADO)
+
     def test_no_sirve_para_otros_endpoints(self):
         response = self.client.get("/api/products/")
         self.assertEqual(response.status_code, 401)

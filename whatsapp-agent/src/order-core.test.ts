@@ -122,4 +122,29 @@ describe("OrderCoreClient", () => {
 
     await expect(client.getCatalog()).rejects.toThrow(/401/);
   });
+
+  it("cancelOrder manda customer_phone para que el Order Core valide la pertenencia", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      jsonResponse({
+        id: 10,
+        customer: 1,
+        customer_nombre: "Cliente A",
+        customer_telefono: "+5491122334455",
+        canal: "whatsapp",
+        estado: "cancelado",
+        notas: "",
+        created_at: "x",
+        updated_at: "x",
+        items: [],
+      }),
+    );
+
+    const order = await client.cancelOrder(10, "+5491122334455");
+
+    expect(order.estado).toBe("cancelado");
+    const [url, init] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("http://order-core.local/api/orders/10/cancel/");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ customer_phone: "+5491122334455" });
+  });
 });
