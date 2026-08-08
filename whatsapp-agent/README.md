@@ -23,6 +23,15 @@ procesa aparte). El `handler` de `src/worker-entry.ts` es un placeholder
 ("recibimos tu mensaje...") hasta que llegue el agente de Claude real
 (tarea 33).
 
+`src/order-core.ts` (tarea 32) es el cliente HTTP hacia el Order Core
+(`order-core/backend`), autenticado con el `BotToken` de la tarea 25
+(header `Authorization: BotToken <token>`, variables `ORDER_CORE_URL` /
+`ORDER_CORE_BOT_TOKEN`). Cubre lo que las tools de la tarea 33 van a
+necesitar: catálogo, info del tenant, buscar/crear cliente por teléfono, y
+crear/consultar pedidos (`canal` se fuerza a `"whatsapp"`, cambiarle el
+estado a un pedido no es una tool del bot -- ver `DenyBotStatusChanges` del
+lado del Order Core).
+
 ## Desarrollo local
 
 ```bash

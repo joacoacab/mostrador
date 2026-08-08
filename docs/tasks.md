@@ -242,9 +242,13 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
   Verificado de punta a punta con mensajes reales: webhook → cola de Redis → worker → respuesta real recibida en el teléfono, con el servidor HTTP y el worker corriendo como dos procesos separados en paralelo.
 
-- [ ] **32. Cliente HTTP hacia el Order Core**
+- [x] **32. Cliente HTTP hacia el Order Core**
   Usa el `BotToken` de la tarea 25.
   Hecho cuando: el cliente puede traer catálogo/info del tenant y crear/consultar un pedido contra el Order Core real (dev).
+
+  `src/order-core.ts`: `createOrderCoreClient(config)` (factory, mismo patrón que `createWahaProvider`) con `getCatalog`, `getTenantInfo`, `findCustomerByPhone`/`createCustomer`/`findOrCreateCustomer`, `createOrder` (fuerza `canal: "whatsapp"`), `getOrder`, `getOrdersByCustomerPhone`. `getOrderCoreClient()` resuelve `ORDER_CORE_URL`/`ORDER_CORE_BOT_TOKEN` del entorno en cada llamado, mismo criterio que `getActiveProvider()`.
+
+  Verificado contra el Order Core real corriendo en dev (no solo mockeado): tenant + producto + `BotToken` de prueba creados vía `manage.py shell`, catálogo/info leídos, cliente creado y encontrado de nuevo sin duplicar, pedido creado con el precio congelado y releído por id y por teléfono del cliente -- todo con el cliente HTTP real de `whatsapp-agent`, no con `curl`. Datos de prueba limpiados al terminar.
 
 - [ ] **33. Agente con Claude (tool use)**
   Las 4 tools de la spec 4.1: catálogo, crear pedido, consultar estado, FAQ (horarios/ubicación/medios de pago).
