@@ -250,9 +250,19 @@ Decisiones confirmadas (ver `docs/plan.md`): `whatsapp-agent` en Node/TypeScript
 
   Verificado contra el Order Core real corriendo en dev (no solo mockeado): tenant + producto + `BotToken` de prueba creados vía `manage.py shell`, catálogo/info leídos, cliente creado y encontrado de nuevo sin duplicar, pedido creado con el precio congelado y releído por id y por teléfono del cliente -- todo con el cliente HTTP real de `whatsapp-agent`, no con `curl`. Datos de prueba limpiados al terminar.
 
-- [ ] **33. Agente con Claude (tool use)**
+- [x] **33. Agente con Claude (tool use)**
   Las 4 tools de la spec 4.1: catálogo, crear pedido, consultar estado, FAQ (horarios/ubicación/medios de pago).
   Hecho cuando: dado un mensaje de texto de prueba (vía WAHA, número propio), el agente elige la tool correcta y arma una respuesta coherente. Necesita la API key de Anthropic del bot -- esta sí es dependencia real, no bloqueada por Meta.
+
+  **Modelo**: `claude-haiku-4-5` (decisión explícita del usuario) -- las 4 tools son acotadas (elegir entre 4 opciones, respuestas cortas en español), no ameritan un modelo más caro. Configurable por `ANTHROPIC_MODEL` si hace falta subir a Sonnet más adelante, sin tocar código.
+
+  `src/agent.ts`: loop manual de tool use (no el tool runner beta del SDK, para no atar el proyecto a una API en beta por una necesidad tan simple) sobre 4 tools -- `ver_catalogo`, `crear_pedido`, `consultar_pedidos`, `info_local` -- que llaman al `OrderCoreClient` de la tarea 32. `runAgent` recibe el cliente de Anthropic como parámetro inyectable para poder testear sin pegarle a la API real. Tope de 6 turnos de tool-use antes de devolver una respuesta genérica (evita loops infinitos). `src/worker-entry.ts` usa `runAgent` como `handler` del worker -- el `catch` genérico ahí es provisorio, el fallback "de verdad" con log estructurado es la tarea 35.
+
+  Verificado de punta a punta con la API de Anthropic real (no mockeada) y el Order Core real: catálogo consultado y mostrado correcto (filtrando `disponible=false`), pedido creado de punta a punta por WhatsApp real (WAHA, número de prueba) y confirmado con id real en el Order Core.
+
+  Dos problemas reales encontrados en la prueba en vivo, no en tests:
+  - **El system prompt inicial no alcanzaba.** Un typo del usuario ("capitulo" en vez de "catalogo") hizo que el agente contestara sobre series/películas con conocimiento general en vez de redirigir -- listar las 4 tools no le puso un límite de scope. Se corrigió agregando al prompt que no es un asistente de propósito general y que ante un mensaje ambiguo tiene que preguntar, no adivinar. Ver el gotcha completo en el README del servicio.
+  - **Sin memoria (todavía) cada mensaje es una conversación nueva** -- el usuario lo notó como que el bot "no se acordaba" de haber dicho que quería pedir chipa un mensaje antes. Es el comportamiento esperado hasta la tarea 34 (memoria corta por `customer_phone`), no un bug de esta tarea.
 
 - [ ] **34. Memoria corta por `customer_phone`**
   Contexto de conversación, ligado al teléfono del cliente.

@@ -19,18 +19,25 @@ Adapter WAHA implementado (tarea 29); Meta todavía no (tarea 30).
 y manda la respuesta por el proveedor activo -- no sabe si el mensaje vino
 de WAHA o de Meta. Corre separado del servidor HTTP a propósito (ver
 `docs/plan.md`, decisión 3: el webhook responde rápido y encola, el worker
-procesa aparte). El `handler` de `src/worker-entry.ts` es un placeholder
-("recibimos tu mensaje...") hasta que llegue el agente de Claude real
-(tarea 33).
+procesa aparte).
 
 `src/order-core.ts` (tarea 32) es el cliente HTTP hacia el Order Core
 (`order-core/backend`), autenticado con el `BotToken` de la tarea 25
 (header `Authorization: BotToken <token>`, variables `ORDER_CORE_URL` /
-`ORDER_CORE_BOT_TOKEN`). Cubre lo que las tools de la tarea 33 van a
-necesitar: catálogo, info del tenant, buscar/crear cliente por teléfono, y
+`ORDER_CORE_BOT_TOKEN`). Cubre lo que las tools del agente necesitan:
+catálogo, info del tenant, buscar/crear cliente por teléfono, y
 crear/consultar pedidos (`canal` se fuerza a `"whatsapp"`, cambiarle el
 estado a un pedido no es una tool del bot -- ver `DenyBotStatusChanges` del
 lado del Order Core).
+
+`src/agent.ts` (tarea 33) es el agente con Claude (`ANTHROPIC_MODEL`, por
+default `claude-haiku-4-5` -- las 4 tools son acotadas, no hace falta un
+modelo más caro para elegir cuál usar). Loop manual de tool use (`while
+stop_reason === "tool_use"`) sobre 4 tools -- `ver_catalogo`,
+`crear_pedido`, `consultar_pedidos`, `info_local` -- que llaman al cliente
+del Order Core. `src/worker-entry.ts` usa `runAgent` como `handler` del
+worker, con un `catch` genérico (el fallback "de verdad", con log
+estructurado, es la tarea 35).
 
 ## Desarrollo local
 
@@ -55,6 +62,7 @@ npm run dev:worker  # worker, en otra terminal
 - **`host.docker.internal` no siempre llega al host.** En Docker Desktop "nativo" (Mac/Windows) anda; en algunas instalaciones con backend WSL2 el container no logra conectar al proceso que corre en la distro (`ECONNREFUSED`). Si el webhook nunca llega, setear `WAHA_HOOK_HOST=<ip de \`hostname -I\` en la distro>` en `.env` -- ver `docker-compose.yml`.
 - **La imagen de WAHA se queda vieja.** Con una imagen desactualizada, la sesión queda pegada re-autenticando sin nunca pasar a `WORKING` (el motor NOWEB tira `Error: Connection Failure` decodificando frames del protocolo). Si pasa eso, `docker compose pull waha` antes de sospechar de la red.
 - **El remitente no siempre es el teléfono real.** Cuando el que escribe tiene la privacidad de número activada (común en cuentas Business), WAHA manda el remitente como `<id>@lid` en vez de `<telefono>@c.us` -- por eso `IncomingMessage.from` guarda el chatId completo tal cual, no el teléfono pelado (ver el comentario en `src/providers/types.ts`).
+- **El system prompt del agente (tarea 33) necesita el límite de scope explícito, no alcanza con listar las 4 tools.** En la prueba real, escribir "capitulo" (typo de "catalogo") hizo que el agente contestara sobre series/películas usando conocimiento general en vez de redirigir. Agregar la lista de tools no evita que conteste algo fuera de ellas -- hay que decirle explícitamente que no es un asistente de propósito general y que ante un mensaje ambiguo pregunte en vez de adivinar (ver `SYSTEM_PROMPT` en `src/agent.ts`).
 
 ## Lint, tests, build
 

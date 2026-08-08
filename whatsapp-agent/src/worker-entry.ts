@@ -1,19 +1,25 @@
 import "dotenv/config";
 
+import { runAgent } from "./agent.js";
+import { getOrderCoreClient } from "./order-core.js";
 import type { IncomingMessage } from "./providers/types.js";
 import { runWorker } from "./worker.js";
 
-/** Placeholder hasta la tarea 33 (agente con Claude, tool use). Por ahora
- * el worker solo confirma que el mensaje llegó -- prueba el loop completo
- * (cola -> handler -> respuesta por el proveedor activo) sin tener
- * todavía agente, cliente del Order Core ni memoria. */
-async function placeholderHandler(message: IncomingMessage): Promise<string> {
-  return `Recibimos tu mensaje: "${message.text}". Todavía no puedo armar pedidos solo -- en un rato lo resuelve alguien del local.`;
+/** El fallback genérico "de verdad" (mensaje + log estructurado) es la
+ * tarea 35 -- este catch es solo para que un error del agente no tire
+ * abajo el worker ni deje al cliente sin respuesta. */
+async function handleMessage(message: IncomingMessage): Promise<string> {
+  try {
+    return await runAgent(message.text, { orderCore: getOrderCoreClient(), customerPhone: message.from });
+  } catch (err) {
+    console.error("Error en el agente", err);
+    return "Uy, no pude procesar tu mensaje. En un rato te escribe alguien del local.";
+  }
 }
 
 console.log("whatsapp-agent worker arrancando...");
 
-runWorker(placeholderHandler).catch((err: unknown) => {
+runWorker(handleMessage).catch((err: unknown) => {
   console.error("Worker terminó con un error fatal", err);
   process.exit(1);
 });
